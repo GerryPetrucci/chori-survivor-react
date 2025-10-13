@@ -6,11 +6,10 @@ import {
   Button,
   Typography,
   Alert,
-  Container,
   Avatar,
   CircularProgress,
 } from '@mui/material';
-import { SportsSoccer as SoccerIcon } from '@mui/icons-material';
+// ...icons not needed; using brand PNG in Avatar
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import type { LoginForm } from '../types';
@@ -29,11 +28,7 @@ export default function LoginPage() {
       ...prev,
       [name]: value,
     }));
-    
-    // Clear error when user starts typing
-    if (error) {
-      clearError();
-    }
+    // ...existing code...
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -52,37 +47,42 @@ export default function LoginPage() {
   };
 
   return (
-    <Container component="main" maxWidth="xs">
-      <Box
+    <Box
+      sx={{
+        minHeight: '100vh',
+        width: '100vw',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'background.default'
+      }}
+    >
+      <Paper
+        elevation={6}
         sx={{
-          minHeight: '100vh',
+          padding: 4,
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'center',
           alignItems: 'center',
+          width: '100%',
+          maxWidth: 420,
+          mx: 2,
         }}
       >
-        <Paper
-          elevation={6}
-          sx={{
-            padding: 4,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            width: '100%',
-          }}
-        >
-          <Avatar sx={{ m: 1, bgcolor: 'primary.main', width: 56, height: 56 }}>
-            <SoccerIcon fontSize="large" />
-          </Avatar>
-          
-          <Typography component="h1" variant="h4" gutterBottom fontWeight="bold">
-            Chori Survivor
-          </Typography>
-          
-          <Typography variant="h6" color="text.secondary" gutterBottom>
-            NFL Survivor Pool
-          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+            <Avatar
+              src="/assets/logos/chori_survivor.png"
+              sx={{ m: 1, width: "100%", height: "100%", bgcolor: 'transparent' }}
+              alt="Chori Survivor"
+            />
+            <Typography
+              variant="subtitle1"
+              color="text.secondary"
+              sx={{ mt: 0.5, fontStyle: 'italic', textAlign: 'center' }}
+            >
+              NFL Survivor Pool
+            </Typography>
+          </Box>
 
           {error && (
             <Alert severity="error" sx={{ mt: 2, width: '100%' }}>
@@ -136,8 +136,18 @@ export default function LoginPage() {
           <Typography variant="body2" color="text.secondary" sx={{ mt: 2, textAlign: 'center' }}>
             Ingresa tus credenciales para acceder al pool de supervivencia NFL
           </Typography>
+          
+          <Box sx={{ mt: 2, textAlign: 'center' }}>
+            <Button
+              variant="text"
+              size="small"
+              onClick={() => navigate('/activate-token')}
+              sx={{ textTransform: 'none' }}
+            >
+              ¿Tienes un token? Actívalo aquí
+            </Button>
+          </Box>
         </Paper>
-      </Box>
-    </Container>
+    </Box>
   );
 }

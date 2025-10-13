@@ -68,7 +68,7 @@ export interface Token {
   entries_count: number;
   created_at: string;
   expires_at?: string;
-  used_by_email?: string;
+  used_by_user_id?: string;
   used_at?: string;
   used_flag: boolean;
 }
@@ -135,6 +135,7 @@ export interface DashboardData {
   derrotas: number;
   posicion_ranking: number;
   semana_actual: number;
+  status?: 'alive' | 'last_chance' | 'eliminated';
   
   // Recent activity
   picks_recientes?: {
@@ -175,6 +176,24 @@ export interface PickForm {
   entry_id: string;
   semana: number;
   equipo: string;
+}
+
+export interface TokenGenerationForm {
+  email: string;
+  entries_count: number;
+  admin_password: string;
+}
+
+export interface TokenActivationForm {
+  token: string;
+  username: string;
+  email: string;
+  password: string;
+  confirm_password: string;
+}
+
+export interface EntriesSelectionForm {
+  entries: string[];
 }
 
 // Navigation and UI types

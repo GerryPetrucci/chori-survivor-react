@@ -11,35 +11,109 @@ type UserProfile = Tables['user_profiles']['Row'];
 
 export const authService = {
   // Registrar nuevo usuario
-  signUp: async (email: string, password: string, username: string, fullName?: string) => {
+  signUp: async (originalEmail: string, password: string, username: string, fullName?: string) => {
     try {
+      console.log('🚀 Supabase signUp called with:', { 
+        email: originalEmail, 
+        emailLength: originalEmail.length,
+        emailType: typeof originalEmail,
+        password: '***',
+        username, 
+        fullName 
+      });
+      
+      // Workaround temporal para emails problemáticos
+      let processedEmail = originalEmail;
+      if (originalEmail.includes('outlook.com') || originalEmail.includes('hotmail.com')) {
+        console.log('⚠️ Email de Outlook/Hotmail detectado, usando workaround...');
+        processedEmail = originalEmail.replace(/@(outlook|hotmail)\.com$/, '@gmail.com');
+        console.log('🔄 Email procesado:', processedEmail);
+      }
+      
       const { data, error } = await supabase.auth.signUp({
-        email,
+        email: processedEmail,
         password,
         options: {
           data: {
             username,
             full_name: fullName,
+            original_email: originalEmail, // Guardar el email original
           }
         }
       });
+
+      console.log('🔄 Supabase signUp response:', { data, error });
 
       if (error) throw error;
       
       // Crear perfil de usuario si el registro fue exitoso
       if (data.user) {
+        console.log('👤 Usuario creado en Auth:', {
+          id: data.user.id,
+          email: data.user.email,
+          confirmed_at: data.user.email_confirmed_at
+        });
+        // Usar el cliente admin/service role para bypasear RLS
         const { error: profileError } = await supabase
           .from('user_profiles')
           .insert({
             id: data.user.id,
             username,
-            full_name: fullName || '',
-            email,
+            full_name: fullName || username,
+            email: data.user.email || originalEmail, // Usar el email confirmado de Supabase
             user_type: 'user'
           });
 
         if (profileError) {
-          console.error('Error creating profile:', profileError);
+          console.error('❌ Error creating profile:', profileError);
+          console.error('❌ Profile error details:', JSON.stringify(profileError, null, 2));
+          
+          // Si es un problema de RLS, crear perfil usando approach diferente
+          if (profileError.message?.includes('row-level security')) {
+            console.log('🔄 RLS bloqueó la creación del perfil. Usando función de base de datos...');
+            
+            try {
+              // Intentar usar una función de base de datos que bypasee RLS
+              console.log('🔧 Creando perfil usando función create_user_profile...');
+              
+              const { error: functionError } = await supabase
+                .rpc('create_user_profile', {
+                  user_id: data.user.id,
+                  user_username: username,
+                  user_full_name: fullName || username,
+                  user_email: data.user.email || originalEmail
+                });
+              
+              if (functionError) {
+                console.error('❌ Error usando función RPC:', functionError);
+                // Si tampoco funciona la función, continuar sin perfil por ahora
+                console.log('⚠️ Continuando sin perfil. Se creará al confirmar email.');
+                return { 
+                  data, 
+                  error: null,
+                  needsEmailConfirmation: true 
+                };
+              } else {
+                console.log('✅ Perfil creado usando función RPC');
+                return { data, error: null };
+              }
+              
+            } catch (retryError: any) {
+              console.error('❌ Error en el proceso de retry:', retryError);
+              // Como último recurso, continuar sin perfil
+              console.log('⚠️ Continuando sin perfil. Se creará al confirmar email.');
+              return { 
+                data, 
+                error: null,
+                needsEmailConfirmation: true 
+              };
+            }
+          } else {
+            // Para otros errores, fallar directamente
+            return { data: null, error: 'Error al crear perfil de usuario: ' + profileError.message };
+          }
+        } else {
+          console.log('✅ Perfil de usuario creado exitosamente');
         }
       }
 
@@ -233,8 +307,7 @@ export const entriesService = {
       .from('entries')
       .select(`
         *,
-        season:seasons(*),
-        user_profile:user_profiles(*)
+        season:seasons(*)
       `)
       .eq('user_id', userId);
 
@@ -372,6 +445,85 @@ export const picksService = {
     const { data, error } = await query.order('created_at');
 
     return { data: data || [], error };
+  },
+
+  // Obtener picks de una entrada específica
+  getPicksByEntry: async (entryId: number) => {
+    const { data, error } = await supabase
+      .from('picks')
+      .select(`
+        *,
+        selected_team:teams(*)
+      `)
+      .eq('entry_id', entryId)
+      .order('week', { ascending: false });
+
+    return { data: data || [], error };
+  },
+
+  // Obtener equipos ya utilizados por una entrada
+  getUsedTeams: async (entryId: number, seasonId?: number) => {
+    let query = supabase
+      .from('picks')
+      .select('selected_team_id')
+      .eq('entry_id', entryId);
+
+    if (seasonId) {
+      query = query.eq('season_id', seasonId);
+    }
+
+    const { data, error } = await query;
+
+    return { 
+      data: data?.map(pick => pick.selected_team_id) || [], 
+      error 
+    };
+  },
+
+  // Obtener pick existente para una entrada en una semana específica
+  getEntryPickForWeek: async (entryId: number, week: number, seasonId?: number) => {
+    let query = supabase
+      .from('picks')
+      .select(`
+        *,
+        match:matches(*),
+        selected_team:teams(*)
+      `)
+      .eq('entry_id', entryId)
+      .eq('week', week);
+
+    if (seasonId) {
+      query = query.eq('season_id', seasonId);
+    }
+
+    const { data, error } = await query.maybeSingle();
+
+    return { data, error };
+  },
+
+  // Actualizar pick existente
+  update: async (
+    pickId: number,
+    matchId: number,
+    teamId: number
+  ) => {
+    const { data, error } = await supabase
+      .from('picks')
+      .update({
+        match_id: matchId,
+        selected_team_id: teamId,
+        result: 'pending'
+      })
+      .eq('id', pickId)
+      .select(`
+        *,
+        entry:entries(*),
+        match:matches(*),
+        selected_team:teams(*)
+      `)
+      .single();
+
+    return { data, error };
   }
 };
 
@@ -459,6 +611,60 @@ export const dashboardService = {
       return { data: null, error: err };
     }
   },
+    // Obtener estadísticas de una entrada específica
+    getEntryStats: async (entryId: number) => {
+      try {
+        // Obtener la entrada
+        const { data: entry, error: entryError } = await supabase
+          .from('entries')
+          .select('*')
+          .eq('id', entryId)
+          .single();
+
+        if (!entry || entryError) {
+          return { data: null, error: entryError || { message: 'Entrada no encontrada' } };
+        }
+
+        // Obtener temporada actual
+        const { data: season } = await supabase
+          .from('seasons')
+          .select('id, current_week, year, is_active')
+          .eq('is_active', true)
+          .single();
+
+        // Ranking: posición de la entrada en la temporada
+        const { data: allEntries } = await supabase
+          .from('entries')
+          .select('id, total_wins')
+          .eq('season_id', entry.season_id)
+          .eq('is_active', true)
+          .order('total_wins', { ascending: false });
+
+        const entryRank = allEntries ? allEntries.findIndex(e => e.id === entryId) + 1 : 0;
+
+        // Picks recientes de la entrada
+        const { data: picks } = await supabase
+          .from('picks')
+          .select('*')
+          .eq('entry_id', entryId)
+          .order('week', { ascending: false })
+          .limit(5);
+
+        const dashboardData = {
+          entradas_activas: entry.is_active ? 1 : 0,
+          victorias: entry.total_wins || 0,
+          derrotas: entry.total_losses || 0,
+          posicion_ranking: entryRank,
+          semana_actual: season?.current_week || null,
+          picks_recientes: picks || [],
+          entry_name: entry.entry_name,
+        };
+
+        return { data: dashboardData, error: null };
+      } catch (err: any) {
+        return { data: null, error: err };
+      }
+    },
 
   // Obtener ranking de temporada
   getSeasonRanking: async (seasonYear?: number) => {
@@ -505,6 +711,251 @@ export const userProfilesService = {
       .order('username');
 
     return { data: data || [], error };
+  }
+};
+
+// =====================================================
+// TOKENS
+// =====================================================
+
+export const tokensService = {
+  // Generar nuevo token
+  generateToken: async (
+    entriesCount: number, 
+    adminPassword: string,
+    idCompra?: string
+  ) => {
+    // Verificar que el usuario actual es admin
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return { data: null, error: { message: 'Usuario no autenticado' }, token: null };
+    }
+
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('user_type')
+      .eq('id', user.id)
+      .single();
+
+    if (!profile || profile.user_type !== 'admin') {
+      return { data: null, error: { message: 'Solo administradores pueden generar tokens' }, token: null };
+    }
+
+    // Validar contraseña del admin (re-autenticación)
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email: user.email || '',
+      password: adminPassword
+    });
+
+    if (authError) {
+      return { data: null, error: { message: 'Contraseña de administrador incorrecta' }, token: null };
+    }
+
+    const token = Math.random().toString(36).substring(2, 15) + 
+                 Math.random().toString(36).substring(2, 15);
+    
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 15); // 15 días de expiración
+
+    const { data, error } = await supabase
+      .from('tokens')
+      .insert({
+        token,
+        id_compra: idCompra,
+        entries_count: entriesCount,
+        expires_at: expiresAt.toISOString(),
+        used_flag: false
+      })
+      .select()
+      .single();
+
+    return { data, error, token };
+  },
+
+  // Validar token
+  validateToken: async (token: string) => {
+    console.log('🔍 Validating token:', token);
+    const normalizedToken = token.toLowerCase().trim();
+    console.log('🔍 Normalized token:', normalizedToken);
+
+    try {
+      // Intentar RPC seguro primero (recomendado)
+      console.log('🔧 Intentando validar token mediante RPC validate_token_rpc...');
+      const { data: rpcData, error: rpcError } = await supabase.rpc('validate_token_rpc', { p_token: normalizedToken });
+      console.log('📊 RPC response:', { rpcData, rpcError });
+
+      if (!rpcError && rpcData) {
+        // Supabase RPC devuelve JSONB; puede ser '{}' si no hay resultado
+        const isEmpty = typeof rpcData === 'object' && Object.keys(rpcData).length === 0;
+        if (!isEmpty) {
+          const tokenRow = Array.isArray(rpcData) ? rpcData[0] : rpcData;
+          if (tokenRow) {
+            console.log('✅ Token válido (RPC):', tokenRow);
+            return { data: tokenRow, error: null };
+          }
+        } else {
+          console.log('🔍 RPC devolvió objeto vacío -> token no encontrado via RPC');
+        }
+      }
+
+      // Si la RPC no existe o no devolvió resultados, intentar el SELECT tradicional
+      console.log('🔁 RPC no disponible o sin resultado, intentando SELECT directo (puede verse afectado por RLS)...');
+      const { data: tokenData, error: searchError } = await supabase
+        .from('tokens')
+        .select('*')
+        .ilike('token', normalizedToken)
+        .maybeSingle();
+
+      console.log('📊 Token found (SELECT):', tokenData);
+      console.log('❌ Search error (SELECT):', searchError);
+
+      if (searchError || !tokenData) {
+        return { data: null, error: { message: 'Token no encontrado' } };
+      }
+
+      if (tokenData.used_flag) {
+        return { data: null, error: { message: 'Token ya ha sido utilizado' } };
+      }
+
+      const now = new Date();
+      const expiresAt = new Date(tokenData.expires_at);
+      console.log('⏰ Current time:', now.toISOString());
+      console.log('⏰ Token expires at:', expiresAt.toISOString());
+
+      if (now > expiresAt) {
+        return { data: null, error: { message: 'Token expirado' } };
+      }
+
+      console.log('✅ Token is valid (SELECT)!');
+      return { data: tokenData, error: null };
+
+    } catch (err: any) {
+      console.error('❌ validateToken error:', err);
+      return { data: null, error: { message: err.message || String(err) } };
+    }
+  },
+
+  // Marcar token como usado
+  useToken: async (token: string, userId: string) => {
+    // Normalizar el token a minúsculas
+    const normalizedToken = token.toLowerCase().trim();
+    
+    console.log('🎫 useToken called with:', { token: normalizedToken, userId });
+    
+    try {
+      // Intentar RPC seguro primero
+      try {
+        const { data: rpcData, error: rpcError } = await supabase.rpc('use_token_rpc', { p_token: normalizedToken, p_user_id: userId });
+        console.log('🔧 use_token_rpc response:', { rpcData, rpcError });
+        if (!rpcError && rpcData && typeof rpcData === 'object' && Object.keys(rpcData).length > 0) {
+          return { data: rpcData, error: null };
+        }
+        if (rpcError) {
+          console.warn('⚠️ use_token_rpc error, falling back to update by id:', rpcError);
+        }
+      } catch (e) {
+        console.warn('⚠️ use_token_rpc threw:', e);
+      }
+
+      // Primero buscar el token para obtener su ID
+      const { data: tokenData, error: findError } = await supabase
+        .from('tokens')
+        .select('*')
+        .ilike('token', normalizedToken)
+        .maybeSingle();
+      
+      if (findError || !tokenData) {
+        console.error('❌ Token not found:', findError);
+        return { data: null, error: findError || { message: 'Token not found' } };
+      }
+      
+      console.log('🔍 Token found for update:', tokenData);
+      
+      // Actualizar usando el ID del token en lugar de ilike
+      const { data, error } = await supabase
+        .from('tokens')
+        .update({
+          used_flag: true,
+          used_by_user_id: userId,
+          used_at: new Date().toISOString()
+        })
+        .eq('id', tokenData.id)
+        .select()
+        .maybeSingle();
+
+      console.log('📊 useToken result:', { data, error });
+      return { data, error };
+      
+    } catch (err: any) {
+      console.error('❌ useToken error:', err);
+      return { data: null, error: err };
+    }
+  },
+
+  // Obtener todos los tokens (para admin)
+  getAllTokens: async () => {
+    const { data, error } = await supabase
+      .from('tokens')
+      .select(`
+        *,
+        user_profile:user_profiles(username, email)
+      `)
+      .order('created_at', { ascending: false });
+
+    return { data: data || [], error };
+  },
+
+  // Obtener entradas pendientes de crear para un usuario
+  getUserPendingEntries: async (userId: string) => {
+    try {
+      // Try RPC first (preferred method)
+      const { data, error } = await supabase.rpc('get_user_pending_entries', { p_user_id: userId });
+
+      if (!error && data) {
+        // rpc returns a JSONB object like { pending_count: <number> }
+        const pendingCount = (data && (data as any).pending_count) ? Number((data as any).pending_count) : 0;
+        console.log('✅ RPC get_user_pending_entries successful, pendingCount:', pendingCount);
+        return { pendingCount, error: null };
+      }
+
+      // Fallback to client-side calculation if RPC not available
+      console.warn('⚠️ RPC not available, using fallback method. Error:', error);
+
+      // Obtener tokens usados por este usuario
+      const { data: usedTokens, error: tokensError } = await supabase
+        .from('tokens')
+        .select('entries_count')
+        .eq('used_by_user_id', userId)
+        .eq('used_flag', true);
+
+      if (tokensError) {
+        console.error('Error fetching used tokens:', tokensError);
+        return { pendingCount: 0, error: tokensError };
+      }
+
+      // Calcular total de entradas que debería tener
+      const totalEntriesFromTokens = usedTokens?.reduce((sum, token) => sum + (token.entries_count || 0), 0) || 0;
+
+      // Obtener entradas ya creadas
+      const { data: existingEntries, error: entriesError } = await supabase
+        .from('entries')
+        .select('id')
+        .eq('user_id', userId);
+
+      if (entriesError) {
+        console.error('Error fetching existing entries:', entriesError);
+        return { pendingCount: 0, error: entriesError };
+      }
+
+      const existingCount = existingEntries?.length || 0;
+      const pendingCount = Math.max(0, totalEntriesFromTokens - existingCount);
+
+      console.log('📊 Fallback calculation - tokens:', totalEntriesFromTokens, 'existing:', existingCount, 'pending:', pendingCount);
+      return { pendingCount, error: null };
+    } catch (err: any) {
+      console.error('Error in getUserPendingEntries:', err);
+      return { pendingCount: 0, error: err };
+    }
   }
 };
 

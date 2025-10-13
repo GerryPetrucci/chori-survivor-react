@@ -7,17 +7,17 @@ import ProtectedRoute from '../components/ui/ProtectedRoute.tsx';
 
 // Pages
 import LoginPage from '../pages/Login.tsx';
+import ActivateTokenPage from '../pages/ActivateToken.tsx';
 import DashboardPage from '../pages/Dashboard.tsx';
 import PicksPage from '../pages/Picks.tsx';
 import RankingPage from '../pages/Ranking.tsx';
 import ProfilePage from '../pages/Profile.tsx';
 import RulesPage from '../pages/Rules.tsx';
 import HistoryPage from '../pages/History.tsx';
+import DebugAuthPage from '../pages/DebugAuth.tsx';
 
 // Admin Pages
 import AdminDashboard from '../pages/admin/AdminDashboard.tsx';
-import AdminMatches from '../pages/admin/AdminMatches.tsx';
-import AdminUsers from '../pages/admin/AdminUsers.tsx';
 
 export default function AppRouter() {
   const { isAuthenticated, user } = useAuth();
@@ -31,6 +31,16 @@ export default function AppRouter() {
           element={
             isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />
           } 
+        />
+        <Route 
+          path="/activate-token" 
+          element={
+            isAuthenticated ? <Navigate to="/dashboard" replace /> : <ActivateTokenPage />
+          } 
+        />
+        <Route 
+          path="/debug-auth" 
+          element={<DebugAuthPage />} 
         />
         
         {/* Protected Routes */}
@@ -51,8 +61,6 @@ export default function AppRouter() {
             {user?.user_type === 'admin' && (
               <>
                 <Route path="admin" element={<AdminDashboard />} />
-                <Route path="admin/matches" element={<AdminMatches />} />
-                <Route path="admin/users" element={<AdminUsers />} />
               </>
             )}
           </Route>
