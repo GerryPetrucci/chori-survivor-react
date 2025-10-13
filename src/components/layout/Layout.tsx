@@ -86,8 +86,19 @@ export default function Layout() {
 
   const drawer = (
     <Box>
-      <Toolbar>
-        <Typography variant="h6" noWrap component="div" color="primary" fontWeight="bold">
+      <Toolbar sx={{ flexDirection: 'column', py: 2 }}>
+        <Box
+          component="img"
+          src="/assets/logos/diablo_survivor.png"
+          alt="Diablo Survivor Logo"
+          sx={{
+            height: 48,
+            width: 48,
+            mb: 1,
+            borderRadius: 1,
+          }}
+        />
+        <Typography variant="h6" noWrap component="div" color="primary" fontWeight="bold" textAlign="center">
           Chori Survivor
         </Typography>
       </Toolbar>
@@ -161,9 +172,22 @@ export default function Layout() {
             <MenuIcon />
           </IconButton>
           
-          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            NFL Survivor Pool
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
+            <Box
+              component="img"
+              src="/assets/logos/diablo_survivor.png"
+              alt="Diablo Survivor Logo"
+              sx={{
+                height: 32,
+                width: 32,
+                mr: 1.5,
+                borderRadius: 0.5,
+              }}
+            />
+            <Typography variant="h6" noWrap component="div">
+              NFL Survivor Pool
+            </Typography>
+          </Box>
           
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <Typography variant="body2" sx={{ mr: 2, display: { xs: 'none', sm: 'block' } }}>
@@ -230,7 +254,12 @@ export default function Layout() {
         }}
       >
         <Toolbar />
-        <Outlet />
+        {/* Center page horizontally similar to Login page */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, mt: 2 }}>
+          <Box sx={{ width: '100%', maxWidth: 1100 }}>
+            <Outlet />
+          </Box>
+        </Box>
       </Box>
     </Box>
   );

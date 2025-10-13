@@ -81,6 +81,7 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(authReducer, initialState);
+  const errorTimeoutRef = React.useRef<number | null>(null);
 
   // Check for existing session on mount
   useEffect(() => {
@@ -137,11 +138,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           dispatch({ type: 'LOGIN_ERROR', payload: 'Profile not found' });
         }
       } else {
-        dispatch({ type: 'LOGIN_ERROR', payload: error || 'Login failed' });
+        const payload = error || 'Login failed';
+        dispatch({ type: 'LOGIN_ERROR', payload });
+        if (errorTimeoutRef.current) window.clearTimeout(errorTimeoutRef.current);
+        errorTimeoutRef.current = window.setTimeout(() => dispatch({ type: 'CLEAR_ERROR' }), 3000);
       }
     } catch (error: any) {
       const errorMessage = error.message || 'Network error occurred';
       dispatch({ type: 'LOGIN_ERROR', payload: errorMessage });
+      if (errorTimeoutRef.current) window.clearTimeout(errorTimeoutRef.current);
+      errorTimeoutRef.current = window.setTimeout(() => dispatch({ type: 'CLEAR_ERROR' }), 3000);
     }
   };
 
@@ -156,6 +162,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const clearError = () => {
+    if (errorTimeoutRef.current) {
+      window.clearTimeout(errorTimeoutRef.current);
+      errorTimeoutRef.current = null;
+    }
     dispatch({ type: 'CLEAR_ERROR' });
   };
 

@@ -20,6 +20,7 @@ import {
 } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
 import { supabase } from '../../config/supabase';
+import TokenGeneratorModal from '../../components/admin/TokenGeneratorModal';
 
 interface AdminStats {
   totalUsers: number;
@@ -35,7 +36,7 @@ interface AdminStats {
 export default function AdminDashboard() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [generatingToken, setGeneratingToken] = useState(false);
+  const [tokenModalOpen, setTokenModalOpen] = useState(false);
 
   useEffect(() => {
     loadAdminStats();
@@ -93,18 +94,14 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleGenerateToken = async () => {
-    setGeneratingToken(true);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-      alert(`Token generado: ${token}`);
-    } catch (error) {
-      console.error('Error generating token:', error);
-      alert('Error al generar token');
-    } finally {
-      setGeneratingToken(false);
-    }
+  const handleGenerateToken = () => {
+    setTokenModalOpen(true);
+  };
+
+  const handleCloseTokenModal = () => {
+    setTokenModalOpen(false);
+    // Recargar stats después de generar token
+    loadAdminStats();
   };
 
   if (loading) {
@@ -139,19 +136,18 @@ export default function AdminDashboard() {
           variant="contained"
           startIcon={<TokenIcon />}
           onClick={handleGenerateToken}
-          disabled={generatingToken}
           sx={{ 
-            bgcolor: 'secondary.main',
-            '&:hover': { bgcolor: 'secondary.dark' }
+            bgcolor: 'info.main',
+            '&:hover': { bgcolor: 'info.dark' }
           }}
         >
-          {generatingToken ? 'Generando...' : 'Generar Token'}
+          Generar Token
         </Button>
       </Box>
 
       {/* KPIs Grid */}
       <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 3, mb: 4 }}>
-        <Card sx={{ bgcolor: 'primary.main', color: 'primary.contrastText' }}>
+        <Card sx={{ bgcolor: 'success.main', color: 'primary.contrastText' }}>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
               <PeopleIcon sx={{ mr: 1 }} />
@@ -243,10 +239,10 @@ export default function AdminDashboard() {
         <Card>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <ScheduleIcon sx={{ mr: 1, color: 'secondary.main' }} />
+              <ScheduleIcon sx={{ mr: 1, color: 'info.main' }} />
               <Typography variant="h6">Semana Actual</Typography>
             </Box>
-            <Typography variant="h4" fontWeight="bold" color="secondary.main">
+            <Typography variant="h4" fontWeight="bold" color="info.main">
               {stats?.currentWeek}
             </Typography>
             <Typography variant="body2" color="text.secondary">
@@ -275,6 +271,12 @@ export default function AdminDashboard() {
       <Alert severity="success" sx={{ mt: 2 }}>
         🎉 ¡Panel de administración funcionando correctamente! Todos los KPIs están actualizados.
       </Alert>
+
+      {/* Modal de generación de tokens */}
+      <TokenGeneratorModal 
+        open={tokenModalOpen} 
+        onClose={handleCloseTokenModal} 
+      />
     </Box>
   );
 }
