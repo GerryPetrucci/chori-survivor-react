@@ -39,6 +39,9 @@ export default function PickSuccessModal({ open, onClose, week, team }: PickSucc
           borderRadius: 3,
           textAlign: 'center',
           p: 2,
+          background: 'linear-gradient(145deg, #ffffff 0%, #f8faff 100%)',
+          boxShadow: '0 20px 40px rgba(102, 126, 234, 0.15)',
+          border: '1px solid rgba(102, 126, 234, 0.1)',
         }
       }}
     >

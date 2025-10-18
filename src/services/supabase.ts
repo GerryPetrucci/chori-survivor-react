@@ -165,6 +165,34 @@ export const authService = {
   // Escuchar cambios de autenticación
   onAuthStateChange: (callback: (event: string, session: any) => void) => {
     return supabase.auth.onAuthStateChange(callback);
+  },
+
+  // Solicitar reset de contraseña
+  requestPasswordReset: async (email: string) => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/login?recovery=true`
+      });
+
+      if (error) throw error;
+      return { success: true, error: null };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Actualizar contraseña del usuario actual
+  updatePassword: async (newPassword: string) => {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) throw error;
+      return { success: true, error: null };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
   }
 };
 
@@ -711,6 +739,17 @@ export const userProfilesService = {
       .order('username');
 
     return { data: data || [], error };
+  },
+
+  // Obtener perfil por email
+  getByEmail: async (email: string) => {
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('email', email)
+      .single();
+
+    return { data, error };
   }
 };
 
@@ -959,6 +998,185 @@ export const tokensService = {
   }
 };
 
+
+
+// =====================================================
+// NOTIFICACIONES Y ACTIVIDADES
+// =====================================================
+
+export const notificationsService = {
+  // Crear nueva notificación/actividad
+  createActivity: async (
+    userId: string,
+    activityType: string,
+    title: string,
+    description: string,
+    metadata: any = {}
+  ) => {
+    const { data, error } = await supabase
+      .from('user_activities')
+      .insert({
+        user_id: userId,
+        activity_type: activityType,
+        title,
+        description,
+        metadata
+      })
+      .select()
+      .single();
+
+    return { data, error };
+  },
+
+  // Obtener actividades de un usuario (para historial)
+  getUserActivities: async (userId: string, limit: number = 50) => {
+    const { data, error } = await supabase
+      .from('user_activities')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    return { data: data || [], error };
+  },
+
+  // Obtener notificaciones no leídas (para el badge)
+  getUnreadNotifications: async (userId: string) => {
+    const { data, error } = await supabase
+      .from('user_activities')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('is_read', false)
+      .order('created_at', { ascending: false });
+
+    return { data: data || [], error };
+  },
+
+  // Marcar notificaciones como leídas
+  markAsRead: async (activityIds: number[]) => {
+    const { data, error } = await supabase
+      .from('user_activities')
+      .update({ is_read: true })
+      .in('id', activityIds);
+
+    return { data, error };
+  },
+
+  // Marcar todas las notificaciones como leídas
+  markAllAsRead: async (userId: string) => {
+    const { data, error } = await supabase
+      .from('user_activities')
+      .update({ is_read: true })
+      .eq('user_id', userId)
+      .eq('is_read', false);
+
+    return { data, error };
+  },
+
+  // Obtener conteo de notificaciones no leídas
+  getUnreadCount: async (userId: string) => {
+    const { count, error } = await supabase
+      .from('user_activities')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('is_read', false);
+
+    return { count: count || 0, error };
+  }
+};
+
+// =====================================================
+// ESTADÍSTICAS
+// =====================================================
+
+export const statsService = {
+  // Obtener estadísticas del usuario
+  getUserStats: async (userId: string) => {
+    try {
+      // Obtener entradas del usuario
+      const { data: entries } = await supabase
+        .from('entries')
+        .select('id, entry_name, total_wins, total_losses, longest_streak, current_streak, status, season_id, seasons(year)')
+        .eq('user_id', userId);
+
+      if (!entries) return { data: null, error: 'No entries found' };
+
+      // Obtener picks del usuario
+      const { data: picks } = await supabase
+        .from('picks')
+        .select(`
+          result,
+          selected_team:teams(name, abbreviation),
+          season_id,
+          week,
+          entry_id
+        `)
+        .in('entry_id', entries.map(e => e.id));
+
+      // Calcular estadísticas generales
+      const totalEntries = entries.length;
+      const totalWins = entries.reduce((sum, entry) => sum + (entry.total_wins || 0), 0);
+      const totalLosses = entries.reduce((sum, entry) => sum + (entry.total_losses || 0), 0);
+      const bestStreak = Math.max(...entries.map(entry => entry.longest_streak || 0));
+      const activeEntries = entries.filter(entry => entry.status !== 'eliminated').length;
+
+      // Equipos más seleccionados
+      const teamCount: Record<string, { name: string, count: number, abbreviation: string }> = {};
+      picks?.forEach(pick => {
+        if (pick.selected_team && Array.isArray(pick.selected_team) && pick.selected_team.length > 0) {
+          const team = pick.selected_team[0];
+          const teamName = team.name;
+          const teamAbbr = team.abbreviation;
+          if (!teamCount[teamName]) {
+            teamCount[teamName] = { name: teamName, abbreviation: teamAbbr, count: 0 };
+          }
+          teamCount[teamName].count++;
+        }
+      });
+
+      const favoriteTeams = Object.values(teamCount)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+
+      // Estadísticas por temporada
+      const seasonStats = entries.reduce((acc: any[], entry: any) => {
+        const existing = acc.find(s => s.seasonId === entry.season_id);
+        const seasonYear = Array.isArray(entry.seasons) && entry.seasons.length > 0 ? entry.seasons[0].year : entry.seasons?.year;
+        if (existing) {
+          existing.entries.push(entry);
+          existing.totalWins += entry.total_wins || 0;
+          existing.totalLosses += entry.total_losses || 0;
+        } else {
+          acc.push({
+            seasonId: entry.season_id,
+            seasonYear: seasonYear,
+            entries: [entry],
+            totalWins: entry.total_wins || 0,
+            totalLosses: entry.total_losses || 0
+          });
+        }
+        return acc;
+      }, []);
+
+      return {
+        data: {
+          totalEntries,
+          totalWins,
+          totalLosses,
+          bestStreak,
+          activeEntries,
+          favoriteTeams,
+          seasonStats,
+          winPercentage: totalWins + totalLosses > 0 ? ((totalWins / (totalWins + totalLosses)) * 100).toFixed(1) : '0'
+        },
+        error: null
+      };
+    } catch (error) {
+      return { data: null, error };
+    }
+  }
+};
+
 // =====================================================
 // UTILIDADES
 // =====================================================
@@ -989,6 +1207,8 @@ export const supabaseServices = {
   picks: picksService,
   dashboard: dashboardService,
   userProfiles: userProfilesService,
+  notifications: notificationsService,
+  stats: statsService,
   utils: utilsService,
 };
 

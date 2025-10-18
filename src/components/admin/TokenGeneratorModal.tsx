@@ -404,25 +404,48 @@ export default function TokenGeneratorModal({ open, onClose }: TokenGeneratorMod
       fullWidth
       PaperProps={{
         sx: {
-          borderRadius: 2,
-          minHeight: '60vh'
+          borderRadius: 3,
+          minHeight: '60vh',
+          background: 'linear-gradient(145deg, #ffffff 0%, #f8faff 100%)',
+          boxShadow: '0 20px 40px rgba(102, 126, 234, 0.15)',
+          border: '1px solid rgba(102, 126, 234, 0.1)'
         }
       }}
     >
       <DialogTitle sx={{ 
         display: 'flex', 
         alignItems: 'center', 
-        bgcolor: 'primary.main', 
-        color: 'primary.contrastText',
-        gap: 1
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        color: 'white',
+        gap: 1,
+        position: 'relative',
+        '&::after': {
+          content: '""',
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: 1,
+          background: 'rgba(255,255,255,0.3)'
+        }
       }}>
-        <TokenIcon />
-        Generar Token de Activación
+        <TokenIcon sx={{ color: 'white' }} />
+        <Typography variant="h5" fontWeight="bold" sx={{ textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
+          Generar Token de Activación
+        </Typography>
         <Box sx={{ flex: 1 }} />
         {!loading && (
           <Button
             onClick={handleClose}
-            sx={{ color: 'primary.contrastText', minWidth: 'auto', p: 1 }}
+            sx={{ 
+              color: 'rgba(255,255,255,0.8)', 
+              minWidth: 'auto', 
+              p: 1,
+              '&:hover': {
+                color: 'white',
+                backgroundColor: 'rgba(255,255,255,0.1)'
+              }
+            }}
           >
             <CloseIcon />
           </Button>
@@ -467,6 +490,19 @@ export default function TokenGeneratorModal({ open, onClose }: TokenGeneratorMod
             variant="contained"
             startIcon={<CheckCircleIcon />}
             fullWidth
+            sx={{
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 600,
+              boxShadow: '0 4px 15px rgba(102, 126, 234, 0.3)',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%)',
+                transform: 'translateY(-2px)',
+                boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+              }
+            }}
           >
             Finalizar
           </Button>
@@ -484,6 +520,24 @@ export default function TokenGeneratorModal({ open, onClose }: TokenGeneratorMod
               variant="contained"
               disabled={loading}
               startIcon={activeStep === 1 ? <SendIcon /> : undefined}
+              sx={{
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                borderRadius: 2,
+                textTransform: 'none',
+                fontWeight: 600,
+                boxShadow: '0 4px 15px rgba(102, 126, 234, 0.3)',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%)',
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                },
+                '&:disabled': {
+                  background: 'rgba(102, 126, 234, 0.3)',
+                  transform: 'none',
+                  boxShadow: 'none'
+                }
+              }}
             >
               {activeStep === 0 ? 'Continuar' : 'Generar Token'}
             </Button>

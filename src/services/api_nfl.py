@@ -184,11 +184,13 @@ async def update_matches(
                 logger.warning(f"Evento sin fecha: {event.get('id')}")
                 continue
             
-            # Parsear fecha del evento
+            # Parsear fecha del evento y convertir a CDMX timezone
             try:
                 event_dt = datetime.strptime(event_date, "%Y-%m-%dT%H:%MZ")
                 event_dt = pytz.utc.localize(event_dt)
-                game_datetime = event_dt.strftime("%Y-%m-%d %H:%M:%S")
+                # Convertir a timezone de CDMX (America/Mexico_City)
+                cdmx_time = event_dt.astimezone(CDMX_TZ)
+                game_datetime = cdmx_time.strftime("%Y-%m-%d %H:%M:%S")
             except Exception as e:
                 logger.warning(f"Error parseando fecha {event_date}: {e}")
                 continue
@@ -339,19 +341,59 @@ async def set_current_week():
             raise HTTPException(status_code=404, detail="No hay temporada activa")
         current_season = season_query.data[0]
         today = datetime.now(pytz.utc)
-        if current_season.get('start_date'):
-            season_start = datetime.strptime(current_season['start_date'], "%Y-%m-%d")
-            season_start = pytz.utc.localize(season_start)
-        else:
-            season_start = datetime(current_season['year'], 9, 4, tzinfo=pytz.utc)
-        if today < season_start:
-            calculated_week = 0
-        else:
-            weeks_passed = (today - season_start).days // 7
-            calculated_week = min(weeks_passed + 1, current_season.get('max_weeks', 18))
+        season_id = current_season['id']
+        
+        # Obtener todos los partidos de la temporada actual, ordenados por semana y fecha
+        matches_query = supabase.table("matches").select("week, game_date").eq("season_id", season_id).order("week").order("game_date").execute()
+        matches = matches_query.data if matches_query.data else []
+        
+        # Agrupar partidos por semana
+        from collections import defaultdict
+        weeks_games = defaultdict(list)
+        for m in matches:
+            weeks_games[m['week']].append(m)
+        
+        # Calcular el inicio de cada semana
+        week_start_dates = {}
+        sorted_weeks = sorted(weeks_games.keys())
+        
+        for i, week in enumerate(sorted_weeks):
+            if i == 0:
+                # Semana 1 empieza en la fecha de inicio de la temporada
+                if current_season.get('start_date'):
+                    season_start = datetime.strptime(current_season['start_date'], "%Y-%m-%d")
+                    season_start = pytz.utc.localize(season_start)
+                else:
+                    season_start = datetime(current_season['year'], 9, 4, tzinfo=pytz.utc)
+                week_start_dates[week] = season_start
+            else:
+                prev_week = sorted_weeks[i-1]
+                # Buscar el último partido de la semana anterior
+                last_game = max(weeks_games[prev_week], key=lambda x: x['game_date'])
+                # Convertir game_date a datetime (manejar formato ISO)
+                game_date_str = last_game['game_date']
+                if 'T' in game_date_str:
+                    # Formato ISO: 2025-09-08T18:15:00
+                    last_game_dt = datetime.strptime(game_date_str, "%Y-%m-%dT%H:%M:%S")
+                else:
+                    # Formato estándar: 2025-09-08 18:15:00
+                    last_game_dt = datetime.strptime(game_date_str, "%Y-%m-%d %H:%M:%S")
+                last_game_dt = pytz.utc.localize(last_game_dt)
+                # El inicio de la semana es el día siguiente a las 00:00
+                week_start_dates[week] = (last_game_dt + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        # Determinar la semana actual
+        calculated_week = 0
+        for week in sorted_weeks:
+            if today >= week_start_dates[week]:
+                calculated_week = week
+            else:
+                break
+        
         supabase.table("seasons").update({
             "current_week": calculated_week
         }).eq("id", current_season['id']).execute()
+        
         logger.info(f"Semana actual actualizada automáticamente a: {calculated_week}")
         return {
             "current_week": calculated_week,
@@ -362,38 +404,6 @@ async def set_current_week():
     except Exception as e:
         logger.error(f"Error al actualizar la semana actual: {e}")
         raise HTTPException(status_code=500, detail=f"Error al actualizar la semana actual: {str(e)}")
-
-@app.get("/current-week")
-async def get_current_week():
-    try:
-        season_query = supabase.table("seasons").select("*").eq("is_active", True).execute()
-        if not season_query.data:
-            raise HTTPException(status_code=404, detail="No hay temporada activa")
-        current_season = season_query.data[0]
-        today = datetime.now(pytz.utc)
-        if current_season.get('start_date'):
-            season_start = datetime.strptime(current_season['start_date'], "%Y-%m-%d")
-            season_start = pytz.utc.localize(season_start)
-        else:
-            season_start = datetime(current_season['year'], 9, 4, tzinfo=pytz.utc)
-        if today < season_start:
-            calculated_week = 0
-        else:
-            weeks_passed = (today - season_start).days // 7
-            calculated_week = min(weeks_passed + 1, current_season.get('max_weeks', 18))
-        supabase.table("seasons").update({
-            "current_week": calculated_week
-        }).eq("id", current_season['id']).execute()
-        logger.info(f"Semana actual actualizada a: {calculated_week}")
-        return {
-            "current_week": calculated_week,
-            "season_year": current_season['year'],
-            "season_id": current_season['id'],
-            "updated": True
-        }
-    except Exception as e:
-        logger.error(f"Error al calcular la semana actual: {e}")
-        raise HTTPException(status_code=500, detail=f"Error al calcular la semana actual: {str(e)}")
 
 @app.get("/test-env")
 async def test_env():
@@ -658,8 +668,8 @@ async def auto_update_picks():
             team_id = pick['selected_team_id']
             entry_id = pick['entry_id']
             week = pick['week']
-            # Obtener el partido con la hora del partido
-            match_query = supabase.table("matches").select("home_team_id, away_team_id, home_score, away_score, game_date").eq("id", match_id).execute()
+            # Obtener el partido con la hora del partido y status
+            match_query = supabase.table("matches").select("home_team_id, away_team_id, home_score, away_score, game_date, status").eq("id", match_id).execute()
             if not match_query.data:
                 continue
             match = match_query.data[0]
@@ -668,9 +678,10 @@ async def auto_update_picks():
             home_score = match['home_score']
             away_score = match['away_score']
             game_date = match.get('game_date')
+            match_status = match.get('status')
             
-            # Solo si hay marcador
-            if home_score is None or away_score is None:
+            # Solo procesar partidos completados con marcador definido
+            if match_status != 'completed' or home_score is None or away_score is None:
                 continue
 
             # Calcular el multiplicador basado en las horas de anticipación
@@ -740,8 +751,8 @@ async def auto_update_picks():
                 points_earned = int(1.0 * multiplier)
             elif result == 'T':
                 points_earned = int(0.5 * multiplier)
-            else:
-                points_earned = 0
+            else:  # result == 'L'
+                points_earned = -300  # Penalización por pick perdido
 
             # Actualizar pick con resultado y puntos
             supabase.table("picks").update({
@@ -753,13 +764,112 @@ async def auto_update_picks():
                       f"Puntos ganados={points_earned}, Semana={week}")
                       
             updated_count += 1
+
+        # ===== ASIGNACIÓN AUTOMÁTICA DE PICKS =====
+        # Buscar entradas que no tienen pick para la semana actual
+        auto_assigned_count = 0
+        
+        # Obtener todas las entradas activas de la temporada
+        entries_query = supabase.table("entries").select("id, user_id, entry_name").eq("season_id", season_id).eq("is_active", True).execute()
+        entries = entries_query.data if entries_query.data else []
+        
+        for entry in entries:
+            entry_id = entry['id']
+            
+            # Verificar si ya tiene pick para la semana actual
+            existing_pick_query = supabase.table("picks").select("id").eq("entry_id", entry_id).eq("week", week_num).eq("season_id", season_id).execute()
+            
+            if existing_pick_query.data:
+                continue  # Ya tiene pick para esta semana
+            
+            # Buscar el último partido de la semana actual
+            last_match_query = supabase.table("matches").select("*").eq("season_id", season_id).eq("week", week_num).order("game_date", desc=True).limit(1).execute()
+            
+            if not last_match_query.data:
+                continue  # No hay partidos esta semana
+                
+            last_match = last_match_query.data[0]
+            
+            # Verificar si el último partido ya empezó
+            game_date = last_match.get('game_date')
+            if game_date:
+                try:
+                    if isinstance(game_date, str):
+                        if 'T' in game_date:
+                            match_time = datetime.strptime(game_date, "%Y-%m-%dT%H:%M:%S")
+                        else:
+                            match_time = datetime.strptime(game_date, "%Y-%m-%d %H:%M:%S")
+                    else:
+                        match_time = game_date
+                    match_time = pytz.utc.localize(match_time) if match_time.tzinfo is None else match_time
+                    
+                    # Si el último partido no ha empezado, no asignar aún
+                    if datetime.now(pytz.utc) < match_time:
+                        continue
+                except Exception as e:
+                    logger.error(f"Error parseando fecha del último partido: {e}")
+                    continue
+            
+            # Obtener equipos que ya usó esta entrada
+            used_teams_query = supabase.table("picks").select("selected_team_id").eq("entry_id", entry_id).eq("season_id", season_id).execute()
+            used_team_ids = [pick['selected_team_id'] for pick in used_teams_query.data] if used_teams_query.data else []
+            
+            # Opción 1: Asignar equipo visitante del último partido si es elegible
+            away_team_id = last_match['away_team_id']
+            selected_team_id = None
+            
+            if away_team_id not in used_team_ids:
+                selected_team_id = away_team_id
+                logger.info(f"Asignando automáticamente equipo visitante {away_team_id} a entrada {entry_id}")
+            else:
+                # Opción 2: Buscar un equipo perdedor de la semana que sea elegible
+                losing_teams_query = supabase.table("matches").select("home_team_id, away_team_id, home_score, away_score").eq("season_id", season_id).eq("week", week_num).execute()
+                
+                eligible_losing_teams = []
+                for match in losing_teams_query.data:
+                    if match['home_score'] is not None and match['away_score'] is not None:
+                        if match['home_score'] < match['away_score']:  # Home perdió
+                            if match['home_team_id'] not in used_team_ids:
+                                eligible_losing_teams.append(match['home_team_id'])
+                        elif match['home_score'] > match['away_score']:  # Away perdió
+                            if match['away_team_id'] not in used_team_ids:
+                                eligible_losing_teams.append(match['away_team_id'])
+                
+                if eligible_losing_teams:
+                    import random
+                    selected_team_id = random.choice(eligible_losing_teams)
+                    logger.info(f"Asignando automáticamente equipo perdedor {selected_team_id} a entrada {entry_id}")
+                else:
+                    logger.warning(f"No hay equipos elegibles para asignación automática a entrada {entry_id}")
+                    continue
+            
+            if selected_team_id:
+                # Crear pick automático
+                now_str = datetime.now(pytz.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")
+                pick_data = {
+                    "entry_id": entry_id,
+                    "season_id": season_id,
+                    "week": week_num,
+                    "match_id": last_match['id'],
+                    "selected_team_id": selected_team_id,
+                    "result": "L",  # Automáticamente pérdida
+                    "points_earned": -300,  # Penalización por no hacer pick
+                    "created_at": now_str,
+                    "updated_at": now_str
+                }
+                
+                supabase.table("picks").insert(pick_data).execute()
+                auto_assigned_count += 1
+                logger.info(f"Pick automático creado para entrada {entry_id}: equipo {selected_team_id}, resultado L, -300 puntos")
+        
         # Actualizar estadísticas de entradas
         entries_updated = update_entry_statistics(supabase, season_id)
         return {
             "status": "success", 
-            "picks_updated": updated_count, 
+            "picks_updated": updated_count,
+            "auto_assigned_picks": auto_assigned_count, 
             "entries_updated": entries_updated,
-            "detail": "Picks y entradas actualizados automáticamente"
+            "detail": f"Picks actualizados: {updated_count}, Picks auto-asignados: {auto_assigned_count}"
         }
     except Exception as e:
         logger.error(f"Error en auto_update_picks: {e}")

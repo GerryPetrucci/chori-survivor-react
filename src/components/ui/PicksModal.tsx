@@ -363,15 +363,41 @@ export default function PicksModal({ open, onClose, entryId, entryName }: PicksM
 
   return (
     <>
-      <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
-        <DialogTitle>
+      <Dialog 
+        open={open} 
+        onClose={onClose} 
+        maxWidth="lg" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            background: 'linear-gradient(145deg, #ffffff 0%, #f8faff 100%)',
+            boxShadow: '0 20px 40px rgba(102, 126, 234, 0.15)',
+            border: '1px solid rgba(102, 126, 234, 0.1)'
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          color: 'white',
+          position: 'relative',
+          '&::after': {
+            content: '""',
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 1,
+            background: 'rgba(255,255,255,0.3)'
+          }
+        }}>
           <Box display="flex" alignItems="center" gap={2}>
-            <SportsIcon color="primary" />
+            <SportsIcon sx={{ color: 'white' }} />
             <Box>
-              <Typography variant="h5" fontWeight="bold">
+              <Typography variant="h5" fontWeight="bold" sx={{ textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
                 Hacer Pick
               </Typography>
-              <Typography variant="subtitle2" color="text.secondary">
+              <Typography variant="subtitle2" sx={{ opacity: 0.9 }}>
                 Entrada: {entryName}
               </Typography>
             </Box>
@@ -522,6 +548,24 @@ export default function PicksModal({ open, onClose, entryId, entryName }: PicksM
             variant="contained"
             disabled={!selectedTeam || loading}
             startIcon={loading ? <CircularProgress size={20} /> : <CheckIcon />}
+            sx={{
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 600,
+              boxShadow: '0 4px 15px rgba(102, 126, 234, 0.3)',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%)',
+                transform: 'translateY(-2px)',
+                boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+              },
+              '&:disabled': {
+                background: 'rgba(102, 126, 234, 0.3)',
+                transform: 'none',
+                boxShadow: 'none'
+              }
+            }}
           >
             {loading ? 'Guardando...' : (existingPick ? 'Actualizar Pick' : 'Guardar Pick')}
           </Button>

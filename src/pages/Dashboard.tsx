@@ -231,31 +231,45 @@ export default function DashboardPage() {
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom fontWeight="bold">
-        Dashboard
-      </Typography>
-      
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="subtitle1" color="text.secondary">
+      {/* Header con gradiente */}
+      <Box sx={{ 
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
+        color: 'white', 
+        p: 3, 
+        borderRadius: 2, 
+        mb: 3,
+        textAlign: 'center'
+      }}>
+        <Typography variant="h4" gutterBottom fontWeight="bold" sx={{ mb: 1 }}>
+          🏈 Dashboard - NFL Survivor Pool
+        </Typography>
+        <Typography variant="subtitle1" sx={{ opacity: 0.9 }}>
           ¡Bienvenido, {user?.username}! Aquí tienes un resumen de tu pool de supervivencia.
         </Typography>
-        
+      </Box>
+      
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         {/* Filtro de entradas - solo mostrar si tiene más de una entrada */}
         {userEntries.length > 1 && (
-          <FormControl size="small" sx={{ minWidth: 200 }}>
-            <InputLabel>Seleccionar Entrada</InputLabel>
-            <Select
-              value={selectedEntry || ''}
-              label="Seleccionar Entrada"
-              onChange={(e) => handleEntryChange(Number(e.target.value))}
-            >
-              {userEntries.map((entry) => (
-                <MenuItem key={entry.id} value={entry.id}>
-                  {entry.entry_name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <>
+            <Typography variant="h6" color="text.primary" fontWeight="bold">
+              Resumen de Entradas
+            </Typography>
+            <FormControl size="small" sx={{ minWidth: 200 }}>
+              <InputLabel>Seleccionar Entrada</InputLabel>
+              <Select
+                value={selectedEntry || ''}
+                label="Seleccionar Entrada"
+                onChange={(e) => handleEntryChange(Number(e.target.value))}
+              >
+                {userEntries.map((entry) => (
+                  <MenuItem key={entry.id} value={entry.id}>
+                    {entry.entry_name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </>
         )}
       </Box>
 
@@ -339,11 +353,28 @@ export default function DashboardPage() {
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 2 }}>
               <Button
                 variant="contained"
-                color="primary"
                 onClick={() => setShowPicksModal(true)}
                 startIcon={<SportsIcon />}
                 size="large"
                 disabled={!selectedEntry}
+                sx={{
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  boxShadow: '0 4px 15px rgba(102, 126, 234, 0.3)',
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%)',
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                  },
+                  '&:disabled': {
+                    background: 'rgba(102, 126, 234, 0.3)',
+                    transform: 'none',
+                    boxShadow: 'none'
+                  }
+                }}
               >
                 Hacer Pick
               </Button>

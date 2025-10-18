@@ -121,14 +121,23 @@ export default function AdminDashboard() {
 
   return (
     <Box>
-      {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      {/* Header con gradiente */}
+      <Box sx={{ 
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
+        color: 'white', 
+        p: 3, 
+        borderRadius: 2, 
+        mb: 3,
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center'
+      }}>
         <Box>
-          <Typography variant="h4" gutterBottom fontWeight="bold">
-            Panel de Administración
+          <Typography variant="h4" gutterBottom fontWeight="bold" sx={{ mb: 1 }}>
+            🛠️ Panel de Administración
           </Typography>
-          <Typography variant="subtitle1" color="text.secondary">
-            Semana {stats?.currentWeek} - Temporada 2025
+          <Typography variant="subtitle1" sx={{ opacity: 0.9 }}>
+            Semana {stats?.currentWeek} - Temporada 2025 NFL
           </Typography>
         </Box>
         
@@ -137,8 +146,13 @@ export default function AdminDashboard() {
           startIcon={<TokenIcon />}
           onClick={handleGenerateToken}
           sx={{ 
-            bgcolor: 'info.main',
-            '&:hover': { bgcolor: 'info.dark' }
+            bgcolor: 'rgba(255,255,255,0.2)',
+            color: 'white',
+            border: '1px solid rgba(255,255,255,0.3)',
+            '&:hover': { 
+              bgcolor: 'rgba(255,255,255,0.3)',
+              border: '1px solid rgba(255,255,255,0.5)'
+            }
           }}
         >
           Generar Token
