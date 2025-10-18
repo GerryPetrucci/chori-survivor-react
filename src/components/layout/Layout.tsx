@@ -21,6 +21,7 @@ import {
   Menu as MenuIcon,
   Dashboard as DashboardIcon,
   Sports as SportsIcon,
+  CalendarMonth as CalendarIcon,
   Leaderboard as LeaderboardIcon,
   Person as PersonIcon,
   Gavel as RulesIcon,
@@ -30,12 +31,14 @@ import {
 } from '@mui/icons-material';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import NotificationsButton from '../NotificationsButton';
 
 const drawerWidth = 240;
 
 const menuItems = [
   { text: 'Dashboard', path: '/dashboard', icon: <DashboardIcon /> },
   { text: 'Hacer Picks', path: '/picks', icon: <SportsIcon /> },
+  { text: 'Partidos', path: '/matches', icon: <CalendarIcon /> },
   { text: 'Ranking', path: '/ranking', icon: <LeaderboardIcon /> },
   { text: 'Perfil', path: '/profile', icon: <PersonIcon /> },
   { text: 'Reglas', path: '/rules', icon: <RulesIcon /> },
@@ -85,64 +88,152 @@ export default function Layout() {
   const isActive = (path: string) => location.pathname === path;
 
   const drawer = (
-    <Box>
-      <Toolbar sx={{ flexDirection: 'column', py: 2 }}>
+    <Box sx={{ 
+      background: 'linear-gradient(180deg, #667eea 0%, #764ba2 100%)',
+      height: '100%',
+      color: 'white'
+    }}>
+      <Toolbar sx={{ 
+        flexDirection: 'column', 
+        py: 3,
+        borderBottom: '1px solid rgba(255,255,255,0.15)'
+      }}>
         <Box
           component="img"
           src="/assets/logos/diablo_survivor.png"
           alt="Diablo Survivor Logo"
           sx={{
-            height: 48,
-            width: 48,
-            mb: 1,
-            borderRadius: 1,
+            height: 56,
+            width: 56,
+            mb: 1.5,
+            borderRadius: 2,
+            boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+            transition: 'transform 0.3s ease',
+            '&:hover': {
+              transform: 'scale(1.1)'
+            }
           }}
         />
-        <Typography variant="h6" noWrap component="div" color="primary" fontWeight="bold" textAlign="center">
+        <Typography 
+          variant="h6" 
+          noWrap 
+          component="div" 
+          fontWeight="bold" 
+          textAlign="center"
+          sx={{
+            textShadow: '0 2px 4px rgba(0,0,0,0.3)',
+            fontSize: '1.1rem'
+          }}
+        >
           Chori Survivor
         </Typography>
       </Toolbar>
       
-      <List>
+      <List sx={{ px: 1, pt: 2 }}>
         {menuItems.map((item) => (
-          <ListItem key={item.text} disablePadding>
+          <ListItem key={item.text} disablePadding sx={{ mb: 0.5 }}>
             <ListItemButton
               onClick={() => handleNavigation(item.path)}
               sx={{
-                backgroundColor: isActive(item.path) ? 'primary.main' : 'transparent',
-                color: isActive(item.path) ? 'white' : 'inherit',
+                borderRadius: 2,
+                mx: 1,
+                backgroundColor: isActive(item.path) ? 'rgba(255,255,255,0.2)' : 'transparent',
+                color: 'white',
+                backdropFilter: isActive(item.path) ? 'blur(10px)' : 'none',
+                border: isActive(item.path) ? '1px solid rgba(255,255,255,0.3)' : '1px solid transparent',
+                transition: 'all 0.3s ease',
                 '&:hover': {
-                  backgroundColor: isActive(item.path) ? 'primary.dark' : 'grey.100',
+                  backgroundColor: isActive(item.path) 
+                    ? 'rgba(255,255,255,0.3)' 
+                    : 'rgba(255,255,255,0.1)',
+                  transform: 'translateX(4px)',
+                  boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
                 },
               }}
             >
-              <ListItemIcon sx={{ color: isActive(item.path) ? 'white' : 'inherit' }}>
+              <ListItemIcon sx={{ 
+                color: 'white',
+                minWidth: 40,
+                transition: 'transform 0.3s ease',
+                '&:hover': {
+                  transform: 'scale(1.1)'
+                }
+              }}>
                 {item.icon}
               </ListItemIcon>
-              <ListItemText primary={item.text} />
+              <ListItemText 
+                primary={item.text}
+                sx={{
+                  '& .MuiListItemText-primary': {
+                    fontWeight: isActive(item.path) ? 600 : 400,
+                    fontSize: '0.95rem'
+                  }
+                }}
+              />
             </ListItemButton>
           </ListItem>
         ))}
         
         {user?.user_type === 'admin' && (
           <>
-            <Box sx={{ borderTop: 1, borderColor: 'divider', my: 1 }} />
+            <Box sx={{ 
+              borderTop: '1px solid rgba(255,255,255,0.2)', 
+              mx: 2, 
+              my: 2,
+              position: 'relative',
+              '&::before': {
+                content: '"Admin"',
+                position: 'absolute',
+                top: -10,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                backgroundColor: 'rgba(255,255,255,0.1)',
+                px: 1,
+                fontSize: '0.75rem',
+                fontWeight: 'bold',
+                borderRadius: 1
+              }
+            }} />
             {adminItems.map((item) => (
-              <ListItem key={item.text} disablePadding>
+              <ListItem key={item.text} disablePadding sx={{ mb: 0.5 }}>
                 <ListItemButton
                   onClick={() => handleNavigation(item.path)}
                   sx={{
-                    backgroundColor: isActive(item.path) ? 'primary.main' : 'transparent',
-                    color: isActive(item.path) ? 'white' : 'inherit',
+                    borderRadius: 2,
+                    mx: 1,
+                    backgroundColor: isActive(item.path) ? 'rgba(255,255,255,0.2)' : 'transparent',
+                    color: 'white',
+                    backdropFilter: isActive(item.path) ? 'blur(10px)' : 'none',
+                    border: isActive(item.path) ? '1px solid rgba(255,255,255,0.3)' : '1px solid transparent',
+                    transition: 'all 0.3s ease',
                     '&:hover': {
-                      backgroundColor: isActive(item.path) ? 'primary.dark' : 'grey.100',
+                      backgroundColor: isActive(item.path) 
+                        ? 'rgba(255,255,255,0.3)' 
+                        : 'rgba(255,255,255,0.1)',
+                      transform: 'translateX(4px)',
+                      boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
                     },
                   }}
                 >
-                  <ListItemIcon sx={{ color: isActive(item.path) ? 'white' : 'inherit' }}>
+                  <ListItemIcon sx={{ 
+                    color: 'white',
+                    minWidth: 40,
+                    transition: 'transform 0.3s ease',
+                    '&:hover': {
+                      transform: 'scale(1.1)'
+                    }
+                  }}>
                     {item.icon}
                   </ListItemIcon>
-                  <ListItemText primary={item.text} />
+                  <ListItemText 
+                    primary={item.text}
+                    sx={{
+                      '& .MuiListItemText-primary': {
+                        fontWeight: isActive(item.path) ? 600 : 400,
+                        fontSize: '0.95rem'
+                      }
+                    }}
+                  />
                 </ListItemButton>
               </ListItem>
             ))}
@@ -159,15 +250,30 @@ export default function Layout() {
         sx={{
           width: { md: `calc(100% - ${drawerWidth}px)` },
           ml: { md: `${drawerWidth}px` },
+          background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+          backdropFilter: 'blur(10px)',
         }}
       >
-        <Toolbar>
+        <Toolbar sx={{ 
+          minHeight: { xs: 64, sm: 72 },
+          px: { xs: 2, sm: 3 }
+        }}>
           <IconButton
             color="inherit"
             aria-label="open drawer"
             edge="start"
             onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { md: 'none' } }}
+            sx={{ 
+              mr: 2, 
+              display: { md: 'none' },
+              borderRadius: 2,
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                backgroundColor: 'rgba(255,255,255,0.1)',
+                transform: 'scale(1.05)'
+              }
+            }}
           >
             <MenuIcon />
           </IconButton>
@@ -178,23 +284,67 @@ export default function Layout() {
               src="/assets/logos/diablo_survivor.png"
               alt="Diablo Survivor Logo"
               sx={{
-                height: 32,
-                width: 32,
-                mr: 1.5,
-                borderRadius: 0.5,
+                height: { xs: 36, sm: 40 },
+                width: { xs: 36, sm: 40 },
+                mr: 2,
+                borderRadius: 1.5,
+                boxShadow: '0 3px 10px rgba(0,0,0,0.3)',
+                transition: 'transform 0.3s ease',
+                cursor: 'pointer',
+                '&:hover': {
+                  transform: 'rotate(5deg) scale(1.1)'
+                }
               }}
             />
-            <Typography variant="h6" noWrap component="div">
+            <Typography 
+              variant="h6" 
+              noWrap 
+              component="div"
+              sx={{
+                fontWeight: 'bold',
+                textShadow: '0 2px 4px rgba(0,0,0,0.3)',
+                fontSize: { xs: '1.1rem', sm: '1.25rem' },
+                letterSpacing: '0.5px'
+              }}
+            >
               NFL Survivor Pool
             </Typography>
           </Box>
           
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <Typography variant="body2" sx={{ mr: 2, display: { xs: 'none', sm: 'block' } }}>
-              {user?.username}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <NotificationsButton />
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                mr: 1, 
+                display: { xs: 'none', sm: 'block' },
+                fontWeight: 500,
+                opacity: 0.9,
+                textShadow: '0 1px 2px rgba(0,0,0,0.2)'
+              }}
+            >
+              Hola, {user?.username}
             </Typography>
-            <IconButton onClick={handleProfileMenuOpen} sx={{ p: 0 }}>
-              <Avatar sx={{ bgcolor: 'secondary.main' }}>
+            <IconButton 
+              onClick={handleProfileMenuOpen} 
+              sx={{ 
+                p: 0.5,
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  transform: 'scale(1.1)',
+                  boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
+                }
+              }}
+            >
+              <Avatar sx={{ 
+                bgcolor: 'rgba(255,255,255,0.2)',
+                color: 'white',
+                fontWeight: 'bold',
+                border: '2px solid rgba(255,255,255,0.3)',
+                backdropFilter: 'blur(10px)',
+                width: { xs: 36, sm: 40 },
+                height: { xs: 36, sm: 40 }
+              }}>
                 {user?.username?.charAt(0).toUpperCase()}
               </Avatar>
             </IconButton>
@@ -206,13 +356,40 @@ export default function Layout() {
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
         onClose={handleProfileMenuClose}
+        PaperProps={{
+          sx: {
+            mt: 1.5,
+            minWidth: 180,
+            borderRadius: 2,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+            border: '1px solid rgba(0,0,0,0.05)',
+            '& .MuiMenuItem-root': {
+              px: 2,
+              py: 1.5,
+              borderRadius: 1,
+              mx: 1,
+              mb: 0.5,
+              transition: 'all 0.2s ease',
+              '&:hover': {
+                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                transform: 'translateX(4px)',
+              },
+              '&:last-child': {
+                mb: 1,
+                '&:hover': {
+                  backgroundColor: 'rgba(244, 67, 54, 0.1)',
+                }
+              }
+            }
+          }
+        }}
       >
         <MenuItem onClick={() => handleNavigation('/profile')}>
-          <PersonIcon sx={{ mr: 1 }} />
+          <PersonIcon sx={{ mr: 1.5, color: 'primary.main' }} />
           Perfil
         </MenuItem>
         <MenuItem onClick={handleLogout}>
-          <LogoutIcon sx={{ mr: 1 }} />
+          <LogoutIcon sx={{ mr: 1.5, color: 'error.main' }} />
           Cerrar Sesión
         </MenuItem>
       </Menu>
@@ -228,7 +405,12 @@ export default function Layout() {
           ModalProps={{ keepMounted: true }}
           sx={{
             display: { xs: 'block', md: 'none' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+            '& .MuiDrawer-paper': { 
+              boxSizing: 'border-box', 
+              width: drawerWidth,
+              borderRight: 'none',
+              boxShadow: '4px 0 20px rgba(0,0,0,0.15)'
+            },
           }}
         >
           {drawer}
@@ -237,7 +419,12 @@ export default function Layout() {
           variant="permanent"
           sx={{
             display: { xs: 'none', md: 'block' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+            '& .MuiDrawer-paper': { 
+              boxSizing: 'border-box', 
+              width: drawerWidth,
+              borderRight: 'none',
+              boxShadow: '4px 0 20px rgba(0,0,0,0.15)'
+            },
           }}
           open
         >
@@ -251,6 +438,8 @@ export default function Layout() {
           flexGrow: 1,
           p: 3,
           width: { md: `calc(100% - ${drawerWidth}px)` },
+          background: 'linear-gradient(180deg, #f8faff 0%, #f0f4ff 50%, #e8f2ff 100%)',
+          minHeight: '100vh'
         }}
       >
         <Toolbar />

@@ -75,13 +75,27 @@ export default function PicksPage() {
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom fontWeight="bold">
-        Hacer Picks
-      </Typography>
-      
-      <Typography variant="subtitle1" color="text.secondary" gutterBottom>
-        Selecciona tus equipos para la semana actual.
-      </Typography>
+      <Box
+        sx={{
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          borderRadius: 3,
+          p: 3,
+          mb: 3,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          color: 'white',
+          textAlign: 'center'
+        }}
+      >
+        <Typography variant="h4" gutterBottom fontWeight="bold">
+          🏈 Hacer Picks
+        </Typography>
+        
+        <Typography variant="subtitle1" sx={{ opacity: 0.9 }}>
+          Selecciona tus equipos para la semana actual
+        </Typography>
+      </Box>
 
       {error && (
         <Alert severity="error" sx={{ mt: 2 }}>
@@ -128,7 +142,25 @@ export default function PicksPage() {
               startIcon={<SportsIcon />}
               onClick={handleMakePick}
               disabled={!selectedEntry}
-              sx={{ mt: 2 }}
+              sx={{ 
+                mt: 2,
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                borderRadius: 2,
+                textTransform: 'none',
+                fontWeight: 600,
+                boxShadow: '0 4px 15px rgba(102, 126, 234, 0.3)',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%)',
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                },
+                '&:disabled': {
+                  background: 'rgba(102, 126, 234, 0.3)',
+                  transform: 'none',
+                  boxShadow: 'none'
+                }
+              }}
             >
               Hacer Pick
             </Button>

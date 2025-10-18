@@ -8,22 +8,29 @@ const theme = createTheme({
   palette: {
     mode: 'light',
     primary: {
-      main: '#EF4444', // rojo
+      main: '#667eea', // azul del gradiente
+      dark: '#5a6fd8',
+      light: '#7c8ef0',
       contrastText: '#FFFFFF',
     },
     secondary: {
-      main: '#FFB4A2', // coral suave
+      main: '#764ba2', // púrpura del gradiente
+      dark: '#6a4190',
+      light: '#8659b4',
+      contrastText: '#FFFFFF',
     },
     background: {
-      default: '#FFF7F6',
+      default: 'linear-gradient(180deg, #f8faff 0%, #f0f4ff 50%, #e8f2ff 100%)',
       paper: '#FFFFFF',
     },
     text: {
-      primary: '#111827',
-      secondary: '#6B7280',
+      primary: '#1a202c',
+      secondary: '#4a5568',
     },
     success: { main: '#16A34A' },
-    error: { main: '#DC2626' },
+    error: { main: '#DC2626' }, // mantener rojo para errores
+    warning: { main: '#F59E0B' },
+    info: { main: '#3B82F6' },
   },
   typography: {
     fontFamily: "'Nunito Sans', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial",

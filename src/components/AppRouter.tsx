@@ -8,8 +8,10 @@ import ProtectedRoute from '../components/ui/ProtectedRoute.tsx';
 // Pages
 import LoginPage from '../pages/Login.tsx';
 import ActivateTokenPage from '../pages/ActivateToken.tsx';
+import RequestPasswordResetPage from '../pages/RequestPasswordReset.tsx';
 import DashboardPage from '../pages/Dashboard.tsx';
 import PicksPage from '../pages/Picks.tsx';
+import MatchesPage from '../pages/Matches.tsx';
 import RankingPage from '../pages/Ranking.tsx';
 import ProfilePage from '../pages/Profile.tsx';
 import RulesPage from '../pages/Rules.tsx';
@@ -29,13 +31,37 @@ export default function AppRouter() {
         <Route 
           path="/login" 
           element={
-            isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />
+            // Allow access to login page if in recovery mode (even if authenticated)
+            (() => {
+              const isRecoveryMode = window.location.search.includes('type=recovery') || 
+                                   window.location.search.includes('recovery=true') ||
+                                   window.location.hash.includes('type=recovery') ||
+                                   window.location.hash.includes('access_token') ||
+                                   window.location.hash.includes('refresh_token') ||
+                                   window.location.search.includes('access_token');
+              
+              console.log('🔍 AppRouter recovery check:', {
+                isAuthenticated,
+                isRecoveryMode,
+                url: window.location.href
+              });
+              
+              return isAuthenticated && !isRecoveryMode ? 
+                <Navigate to="/dashboard" replace /> : 
+                <LoginPage />;
+            })()
           } 
         />
         <Route 
           path="/activate-token" 
           element={
             isAuthenticated ? <Navigate to="/dashboard" replace /> : <ActivateTokenPage />
+          } 
+        />
+        <Route 
+          path="/request-password-reset" 
+          element={
+            isAuthenticated ? <Navigate to="/dashboard" replace /> : <RequestPasswordResetPage />
           } 
         />
         <Route 
@@ -52,6 +78,7 @@ export default function AppRouter() {
             {/* User Routes */}
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="picks" element={<PicksPage />} />
+            <Route path="matches" element={<MatchesPage />} />
             <Route path="ranking" element={<RankingPage />} />
             <Route path="profile" element={<ProfilePage />} />
             <Route path="rules" element={<RulesPage />} />

@@ -3,6 +3,7 @@ import emailjs from '@emailjs/browser';
 // Configuración de EmailJS desde variables de entorno
 const EMAILJS_SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID;
 const EMAILJS_TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
+
 const EMAILJS_PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
 const DEV_EMAIL = import.meta.env.VITE_DEV_EMAIL || 'gerry_petrucci_developer@outlook.com';
 const SENDER_EMAIL = import.meta.env.VITE_SENDER_EMAIL || 'tokens@chori-survivor.com';
@@ -15,6 +16,8 @@ export interface TokenEmailData {
   expiryDate: string;
 }
 
+
+
 export const emailService = {
   // Inicializar EmailJS
   init: () => {
@@ -22,271 +25,112 @@ export const emailService = {
   },
 
   // Generar HTML del email con el token
-  generateTokenEmailHTML: (data: TokenEmailData): string => {
-    return `
-    <!DOCTYPE html>
-    <html lang="es">
-    <head>
+    generateTokenEmailHTML: (data: TokenEmailData): string => {
+      return `
+      <!DOCTYPE html>
+      <html lang="es">
+      <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Token de Activación - Chori Survivor</title>
-        <style>
-            body {
-                font-family: 'Arial', sans-serif;
-                line-height: 1.6;
-                margin: 0;
-                padding: 0;
-                background-color: #f4f4f4;
-            }
-            .container {
-                max-width: 600px;
-                margin: 20px auto;
-                background: #ffffff;
-                border-radius: 10px;
-                box-shadow: 0 0 20px rgba(0,0,0,0.1);
-                overflow: hidden;
-            }
-            .header {
-                background: linear-gradient(135deg, #1976d2, #dc004e);
-                color: white;
-                text-align: center;
-                padding: 30px 20px;
-            }
-            .header h1 {
-                margin: 0;
-                font-size: 28px;
-                font-weight: bold;
-            }
-            .header p {
-                margin: 10px 0 0 0;
-                opacity: 0.9;
-                font-size: 16px;
-            }
-            .content {
-                padding: 40px 30px;
-            }
-            .token-box {
-                background: linear-gradient(135deg, #e3f2fd, #f3e5f5);
-                border: 2px solid #1976d2;
-                border-radius: 10px;
-                padding: 25px;
-                margin: 25px 0;
-                text-align: center;
-            }
-            .token {
-                font-size: 24px;
-                font-weight: bold;
-                color: #1976d2;
-                letter-spacing: 2px;
-                font-family: 'Courier New', monospace;
-                background: #ffffff;
-                padding: 15px;
-                border-radius: 8px;
-                margin: 10px 0;
-                border: 2px dashed #1976d2;
-            }
-            .info-grid {
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 20px;
-                margin: 25px 0;
-            }
-            .info-item {
-                background: #f8f9fa;
-                padding: 15px;
-                border-radius: 8px;
-                border-left: 4px solid #1976d2;
-            }
-            .info-label {
-                font-weight: bold;
-                color: #333;
-                margin-bottom: 5px;
-            }
-            .info-value {
-                color: #666;
-                font-size: 18px;
-            }
-            .cta-button {
-                display: inline-block;
-                background: linear-gradient(135deg, #1976d2, #1565c0);
-                color: white;
-                padding: 15px 30px;
-                text-decoration: none;
-                border-radius: 8px;
-                font-weight: bold;
-                font-size: 16px;
-                margin: 20px 0;
-                box-shadow: 0 4px 15px rgba(25, 118, 210, 0.3);
-                transition: all 0.3s ease;
-            }
-            .steps {
-                background: #f8f9fa;
-                padding: 25px;
-                border-radius: 10px;
-                margin: 25px 0;
-            }
-            .step {
-                display: flex;
-                align-items: center;
-                margin: 15px 0;
-                padding: 10px;
-                background: white;
-                border-radius: 8px;
-                border-left: 4px solid #4caf50;
-            }
-            .step-number {
-                background: #4caf50;
-                color: white;
-                width: 25px;
-                height: 25px;
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-weight: bold;
-                margin-right: 15px;
-                font-size: 14px;
-            }
-            .footer {
-                background: #333;
-                color: white;
-                text-align: center;
-                padding: 25px;
-            }
-            .warning {
-                background: #fff3cd;
-                border: 1px solid #ffeaa7;
-                color: #856404;
-                padding: 15px;
-                border-radius: 8px;
-                margin: 20px 0;
-            }
-            @media (max-width: 600px) {
-                .container {
-                    margin: 10px;
-                }
-                .content {
-                    padding: 20px 15px;
-                }
-                .info-grid {
-                    grid-template-columns: 1fr;
-                }
-                .token {
-                    font-size: 18px;
-                }
-            }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <!-- Header -->
-            <div class="header">
-                <h1>🏈 Chori Survivor</h1>
-                <p>NFL Survivor Pool - Token de Activación</p>
-            </div>
+      </head>
+      <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; margin:0; padding:0;">
+        <table width="100%" bgcolor="#f4f4f4" cellpadding="0" cellspacing="0" style="margin:0; padding:0;">
+          <tr>
+            <td align="center">
+              <table width="600" cellpadding="0" cellspacing="0" style="background:#fff; border-radius:10px; box-shadow:0 0 20px rgba(0,0,0,0.08); margin:20px auto;">
+                <!-- Header con logo -->
+                <tr>
+                  <td align="center" style="padding:30px 20px 10px 20px; background:#EF4444; border-top-left-radius:10px; border-top-right-radius:10px;">
+                    <img src="https://i.imgur.com/CkMST9l.png" alt="Chori Survivor" width="120" style="display:block; margin:auto;">
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding:0 20px 20px 20px; background:#EF4444; color:#fff;">
+                    <h2 style="margin:0; font-size:24px; font-weight:bold;">NFL Survivor Pool - Token de Activación</h2>
+                  </td>
+                </tr>
+                <!-- Content -->
+                <tr>
+                  <td style="padding:30px 30px 10px 30px;">
+                    <h3 style="margin-top:0;">¡Bienvenido al Pool de Supervivencia NFL! 🎉</h3>
+                    <p>Hemos generado un token especial para que puedas unirte a nuestro emocionante pool de supervivencia de la NFL.</p>
+                    <!-- Token Box -->
+                    <table width="100%" cellpadding="0" cellspacing="0" style="background:#FFB4A2; border:2px solid #EF4444; border-radius:10px; margin:25px 0;">
+                      <tr>
+                        <td align="center" style="padding:20px;">
+                          <h3 style="margin:0 0 10px 0;">🔑 Tu Token de Activación</h3>
+                          <div style="font-size:22px; font-weight:bold; color:#EF4444; letter-spacing:2px; font-family:'Courier New', monospace; background:#fff; padding:12px; border-radius:8px; border:2px dashed #EF4444; display:inline-block;">${data.token}</div>
+                          <p style="margin:10px 0 0 0;"><strong>¡Guarda este token en un lugar seguro!</strong></p>
+                        </td>
+                      </tr>
+                    </table>
+                    <!-- Info Grid -->
+                    <table width="100%" cellpadding="0" cellspacing="0" style="margin:25px 0;">
+                      <tr>
+                        <td style="background:#f8f9fa; padding:15px; border-radius:8px; border-left:4px solid #1976d2;">
+                          <strong>🎯 Entradas Permitidas:</strong> ${data.entriesCount} entrada(s)
+                        </td>
+                        <td style="background:#f8f9fa; padding:15px; border-radius:8px; border-left:4px solid #1976d2;">
+                          <strong>⏰ Válido Hasta:</strong> ${data.expiryDate}
+                        </td>
+                      </tr>
+                    </table>
+                    <!-- Call to Action (botón compatible) -->
+                    <table width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0;">
+                      <tr>
+                        <td align="center">
+                          <a href="http://localhost:5173/activate-token" style="display:inline-block; background:#EF4444; color:#fff; padding:15px 30px; text-decoration:none; border-radius:8px; font-weight:bold; font-size:16px;">🚀 Activar Token Ahora</a>
+                        </td>
+                      </tr>
+                    </table>
+                    <!-- Steps -->
+                    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8f9fa; border-radius:10px; margin:25px 0;">
+                      <tr><td style="padding:20px;">
+                        <h3 style="margin-top:0;">📋 Pasos para Activar tu Token</h3>
+                        <ol style="padding-left:18px;">
+                          <li><strong>Haz clic en "Activar Token Ahora"</strong> o ve a la página de login y selecciona "¿Tienes un token? Actívalo aquí"</li>
+                          <li><strong>Ingresa tu token</strong> (copia y pega el token que aparece arriba)</li>
+                          <li><strong>Crea tu cuenta</strong> (completa el formulario con tu información personal)</li>
+                          <li><strong>Nombra tus entradas</strong> (elige nombres únicos para tus ${data.entriesCount} entrada(s) al pool)</li>
+                          <li><strong>¡Comienza a jugar!</strong> (accede al dashboard y haz tus picks semanales)</li>
+                        </ol>
+                      </td></tr>
+                    </table>
+                    <!-- Warning -->
+                    <table width="100%" cellpadding="0" cellspacing="0" style="background:#fff3cd; border:1px solid #ffeaa7; color:#856404; padding:15px; border-radius:8px; margin:20px 0;">
+                      <tr><td>
+                        <strong>⚠️ Importante:</strong>
+                        <ul style="margin:10px 0; padding-left:20px;">
+                          <li>Este token es válido por <strong>15 días</strong> desde su generación</li>
+                          <li>Solo puede ser usado <strong>una vez</strong></li>
+                          <li>Debes usar el mismo correo electrónico (${data.recipientEmail}) al registrarte</li>
+                          <li>Los nombres de entradas deben ser únicos en todo el pool</li>
+                        </ul>
+                      </td></tr>
+                    </table>
+                    <p>Si tienes alguna pregunta o problema, contacta al administrador del pool.</p>
+                    <p><strong>¡Que tengas suerte en el Survivor Pool! 🍀</strong></p>
+                  </td>
+                </tr>
+                <!-- Footer -->
+                <tr>
+                  <td align="center" style="background:#333; color:#fff; padding:25px; border-bottom-left-radius:10px; border-bottom-right-radius:10px;">
+                    <p style="margin:0;">© 2025 Chori Survivor - NFL Survivor Pool</p>
+                    <p style="margin:0;"><strong>Remitente:</strong> ${SENDER_NAME} <span style="color:#1976d2; text-decoration:none;">${SENDER_EMAIL.replace('@', '&#64;')}</span></p>
+                    <p style="margin:0;">Este es un correo automático, no responder.</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+      `;
+    },
 
-            <!-- Content -->
-            <div class="content">
-                <h2>¡Bienvenido al Pool de Supervivencia NFL! 🎉</h2>
-                <p>Hemos generado un token especial para que puedas unirte a nuestro emocionante pool de supervivencia de la NFL.</p>
 
-                <!-- Token Box -->
-                <div class="token-box">
-                    <h3>🔑 Tu Token de Activación</h3>
-                    <div class="token">${data.token}</div>
-                    <p><strong>¡Guarda este token en un lugar seguro!</strong></p>
-                </div>
-
-                <!-- Info Grid -->
-                <div class="info-grid">
-                    <div class="info-item">
-                        <div class="info-label">🎯 Entradas Permitidas</div>
-                        <div class="info-value">${data.entriesCount} entrada(s)</div>
-                    </div>
-                    <div class="info-item">
-                        <div class="info-label">⏰ Válido Hasta</div>
-                        <div class="info-value">${data.expiryDate}</div>
-                    </div>
-                </div>
-
-                <!-- Call to Action -->
-                <div style="text-align: center;">
-                    <a href="http://localhost:5173/activate-token" class="cta-button">
-                        🚀 Activar Token Ahora
-                    </a>
-                </div>
-
-                <!-- Steps -->
-                <div class="steps">
-                    <h3>📋 Pasos para Activar tu Token</h3>
-                    
-                    <div class="step">
-                        <div class="step-number">1</div>
-                        <div>
-                            <strong>Haz clic en "Activar Token Ahora"</strong><br>
-                            O ve a la página de login y selecciona "¿Tienes un token? Actívalo aquí"
-                        </div>
-                    </div>
-
-                    <div class="step">
-                        <div class="step-number">2</div>
-                        <div>
-                            <strong>Ingresa tu token</strong><br>
-                            Copia y pega el token que aparece arriba
-                        </div>
-                    </div>
-
-                    <div class="step">
-                        <div class="step-number">3</div>
-                        <div>
-                            <strong>Crea tu cuenta</strong><br>
-                            Completa el formulario con tu información personal
-                        </div>
-                    </div>
-
-                    <div class="step">
-                        <div class="step-number">4</div>
-                        <div>
-                            <strong>Nombra tus entradas</strong><br>
-                            Elige nombres únicos para tus ${data.entriesCount} entrada(s) al pool
-                        </div>
-                    </div>
-
-                    <div class="step">
-                        <div class="step-number">5</div>
-                        <div>
-                            <strong>¡Comienza a jugar!</strong><br>
-                            Accede al dashboard y haz tus picks semanales
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Warning -->
-                <div class="warning">
-                    <strong>⚠️ Importante:</strong>
-                    <ul style="margin: 10px 0; padding-left: 20px;">
-                        <li>Este token es válido por <strong>15 días</strong> desde su generación</li>
-                        <li>Solo puede ser usado <strong>una vez</strong></li>
-                        <li>Debes usar el mismo correo electrónico (${data.recipientEmail}) al registrarte</li>
-                        <li>Los nombres de entradas deben ser únicos en todo el pool</li>
-                    </ul>
-                </div>
-
-                <p>Si tienes alguna pregunta o problema, contacta al administrador del pool.</p>
-                <p><strong>¡Que tengas suerte en el Survivor Pool! 🍀</strong></p>
-            </div>
-
-            <!-- Footer -->
-            <div class="footer">
-                <p>© 2025 Chori Survivor - NFL Survivor Pool</p>
-                <p><strong>Remitente:</strong> ${SENDER_NAME} &lt;${SENDER_EMAIL}&gt;</p>
-                <p>Este es un correo automático, no responder.</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    `;
-  },
 
   // Enviar email con token
   sendTokenEmail: async (data: TokenEmailData): Promise<{ success: boolean; error?: string }> => {

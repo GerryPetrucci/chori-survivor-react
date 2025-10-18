@@ -1,8 +1,7 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { Container, Paper, Typography, Box, TextField, Button, CircularProgress, Alert } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { tokensService, authService } from '../services/supabase';
-import { supabase } from '../config/supabase';
 
 const ActivateToken: React.FC = () => {
   const navigate = useNavigate();
@@ -18,6 +17,36 @@ const ActivateToken: React.FC = () => {
     password: '',
     confirm_password: ''
   });
+
+  const textFieldSx = {
+    '& .MuiOutlinedInput-root': {
+      borderRadius: 2,
+      backgroundColor: 'rgba(255, 255, 255, 0.8)',
+      transition: 'all 0.3s ease',
+      '& fieldset': {
+        borderColor: 'rgba(102, 126, 234, 0.3)',
+        borderWidth: 1.5,
+      },
+      '&:hover fieldset': {
+        borderColor: 'rgba(102, 126, 234, 0.5)',
+      },
+      '&.Mui-focused fieldset': {
+        borderColor: '#667eea',
+        borderWidth: 2,
+      },
+      '&.Mui-focused': {
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        boxShadow: '0 4px 15px rgba(102, 126, 234, 0.2)',
+      }
+    },
+    '& .MuiInputLabel-root': {
+      color: 'rgba(102, 126, 234, 0.8)',
+      '&.Mui-focused': {
+        color: '#667eea',
+        fontWeight: 600
+      }
+    }
+  };
 
   const handleValidateToken = async () => {
     if (!tokenForm.token.trim()) {
@@ -35,6 +64,7 @@ const ActivateToken: React.FC = () => {
         return;
       }
       setSuccess(`Token válido! Tienes ${data.entries_count} entrada(s).`);
+      setUserForm(prev => ({ ...prev, email: data.email }));
       setStep(2);
     } catch (err: any) {
       setError(err.message || 'Error al validar token');
@@ -54,121 +84,45 @@ const ActivateToken: React.FC = () => {
       return;
     }
 
+    if (userForm.password.length < 6) {
+      setError('La contraseña debe tener al menos 6 caracteres');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
-    let attemptedRetry = false;
-
-    const attemptSignUp = async () => {
-      try {
-        console.log('🚀 Iniciando creación de usuario:', {
-          email: userForm.email,
-          username: userForm.username,
-          token: tokenForm.token
-        });
-
-        const { data, error } = await authService.signUp(
-          userForm.email,
-          userForm.password,
-          userForm.username,
-          userForm.username
-        );
-
-        console.log('📊 Resultado signUp:', { data, error });
-
-        if (error || !data?.user) {
-          // Detectar mensaje de rate-limit de Supabase y reintentar automáticamente una vez
-          const errMsg = typeof error === 'string' ? error : error?.message || '';
-          const match = /you can only request this after\s*(\d+)\s*seconds?/i.exec(errMsg);
-          if (match && !attemptedRetry) {
-            attemptedRetry = true;
-            const waitSec = parseInt(match[1], 10) || 5;
-            console.log(`⏳ Rate limit detected, waiting ${waitSec}s before retrying...`);
-            await new Promise(res => setTimeout(res, (waitSec + 1) * 1000));
-            return attemptSignUp();
-          }
-
-          console.error('❌ Error en signUp:', error);
-          setError('Error al crear usuario: ' + (error?.message || error));
-          return null;
-        }
-
-        return { data, error };
-
-      } catch (err: any) {
-        console.error('❌ Error general en attemptSignUp:', err);
-        setError('Error: ' + err.message);
-        return null;
-      }
-    };
-
     try {
-      const result = await attemptSignUp();
-      if (!result || !result.data || !result.data.user) {
-        // Si after retry still no user, stop
-        setLoading(false);
+      // Primero crear el usuario con Supabase Auth
+      const { data: authData, error: authError } = await authService.signUp(
+        userForm.email,
+        userForm.password,
+        userForm.username,
+        userForm.username
+      );
+
+      if (authError || !authData?.user) {
+        setError(authError || 'Error al crear usuario');
         return;
       }
 
-      const data = result.data as any;
+      // Luego marcar el token como usado
+      const { error: tokenError } = await tokensService.useToken(
+        tokenForm.token,
+        authData.user.id
+      );
 
-      console.log('✅ Usuario creado en Auth:', {
-        id: data.user!.id,
-        email: data.user!.email,
-        confirmed: data.user!.email_confirmed_at
-      });
-
-      // Verificar si el perfil se creó automáticamente
-      console.log('🔍 Verificando si el perfil se creó automáticamente...');
-      const profileCheckResult = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', data.user!.id)
-        .single();
-      
-      console.log('📋 Resultado verificación perfil:', profileCheckResult);
-
-      if (profileCheckResult.error) {
-        console.log('⚠️ Perfil no existe, intentando crear manualmente...');
-        // Si no existe el perfil, intentar crearlo manualmente
-        const manualProfileResult = await supabase
-          .from('user_profiles')
-          .insert({
-            id: data.user!.id,
-            username: userForm.username,
-            full_name: userForm.username,
-            email: data.user!.email || userForm.email,
-            user_type: 'user'
-          })
-          .select()
-          .single();
-        
-        console.log('📊 Resultado creación manual de perfil:', manualProfileResult);
-        
-        if (manualProfileResult.error) {
-          console.error('❌ Error al crear perfil manualmente:', manualProfileResult.error);
-        }
-      }
-
-      console.log('🎫 Marcando token como usado...');
-      const tokenResult = await tokensService.useToken(tokenForm.token, data.user!.id);
-      console.log('📊 Resultado useToken:', tokenResult);
-
-      if (tokenResult.error) {
-        console.error('❌ Error al marcar token como usado:', tokenResult.error);
-        setError('Usuario creado pero error al procesar token: ' + tokenResult.error.message);
+      if (tokenError) {
+        setError('Usuario creado pero error al procesar token: ' + tokenError.message);
         return;
       }
 
-      setSuccess('Usuario creado exitosamente! ID: ' + data.user!.id);
-      
+      setSuccess('¡Usuario creado exitosamente! Redirigiendo al login...');
       setTimeout(() => {
         navigate('/login');
-      }, 3000);
-
+      }, 2000);
     } catch (err: any) {
-      console.error('❌ Error general:', err);
-      setError('Error: ' + err.message);
+      setError(err.message || 'Error al crear usuario');
     } finally {
       setLoading(false);
     }
@@ -176,10 +130,41 @@ const ActivateToken: React.FC = () => {
 
   return (
     <Container component="main" maxWidth="sm" sx={{ py: 4 }}>
-      <Paper elevation={3} sx={{ p: 4 }}>
-        <Typography component="h1" variant="h4" align="center" gutterBottom>
-          Activar Token - Sistema Mejorado
+      <Box
+        sx={{
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          borderRadius: 3,
+          p: 3,
+          mb: 3,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          color: 'white',
+          textAlign: 'center'
+        }}
+      >
+        <Typography component="h1" variant="h4" gutterBottom fontWeight="bold">
+          🎫 Activar Token
         </Typography>
+        
+        <Typography variant="subtitle1" sx={{ opacity: 0.9 }}>
+          Activa tu token para unirte al pool
+        </Typography>
+      </Box>
+      
+      <Paper 
+        elevation={0}
+        sx={{ 
+          p: 4,
+          borderRadius: 3,
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(20px)',
+          boxShadow: '0 20px 40px rgba(0,0,0,0.1), 0 0 0 1px rgba(255,255,255,0.2)',
+          border: '1px solid rgba(255,255,255,0.3)',
+          position: 'relative',
+          zIndex: 1
+        }}
+      >
 
         {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
         {success && <Alert severity="success" sx={{ mb: 3 }}>{success}</Alert>}
@@ -196,8 +181,34 @@ const ActivateToken: React.FC = () => {
               onChange={(e) => setTokenForm({ token: e.target.value.toLowerCase().trim() })}
               disabled={loading}
               autoFocus
+              sx={textFieldSx}
             />
-            <Button type="submit" fullWidth variant="contained" sx={{ mt: 3, mb: 2 }} disabled={loading}>
+            <Button 
+              type="submit" 
+              fullWidth 
+              variant="contained" 
+              sx={{ 
+                mt: 3, 
+                mb: 2,
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                borderRadius: 2,
+                textTransform: 'none',
+                fontWeight: 600,
+                boxShadow: '0 4px 15px rgba(102, 126, 234, 0.3)',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%)',
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                },
+                '&:disabled': {
+                  background: 'rgba(102, 126, 234, 0.3)',
+                  transform: 'none',
+                  boxShadow: 'none'
+                }
+              }} 
+              disabled={loading}
+            >
               {loading ? <CircularProgress size={24} /> : 'Validar Token'}
             </Button>
           </Box>
@@ -214,6 +225,8 @@ const ActivateToken: React.FC = () => {
               value={userForm.username}
               onChange={(e) => setUserForm(prev => ({ ...prev, username: e.target.value }))}
               disabled={loading}
+              autoFocus
+              sx={textFieldSx}
             />
             <TextField
               margin="normal"
@@ -223,8 +236,8 @@ const ActivateToken: React.FC = () => {
               type="email"
               value={userForm.email}
               onChange={(e) => setUserForm(prev => ({ ...prev, email: e.target.value }))}
-              disabled={loading}
-              helperText="Outlook/Hotmail se convertirán a Gmail automáticamente"
+              disabled={loading || !!userForm.email}
+              sx={textFieldSx}
             />
             <TextField
               margin="normal"
@@ -235,6 +248,7 @@ const ActivateToken: React.FC = () => {
               value={userForm.password}
               onChange={(e) => setUserForm(prev => ({ ...prev, password: e.target.value }))}
               disabled={loading}
+              sx={textFieldSx}
             />
             <TextField
               margin="normal"
@@ -245,14 +259,51 @@ const ActivateToken: React.FC = () => {
               value={userForm.confirm_password}
               onChange={(e) => setUserForm(prev => ({ ...prev, confirm_password: e.target.value }))}
               disabled={loading}
+              sx={textFieldSx}
             />
-            <Button type="submit" fullWidth variant="contained" sx={{ mt: 3, mb: 2 }} disabled={loading}>
+            <Button 
+              type="submit" 
+              fullWidth 
+              variant="contained" 
+              sx={{ 
+                mt: 3, 
+                mb: 2,
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                borderRadius: 2,
+                textTransform: 'none',
+                fontWeight: 600,
+                boxShadow: '0 4px 15px rgba(102, 126, 234, 0.3)',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%)',
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                },
+                '&:disabled': {
+                  background: 'rgba(102, 126, 234, 0.3)',
+                  transform: 'none',
+                  boxShadow: 'none'
+                }
+              }} 
+              disabled={loading}
+            >
               {loading ? <CircularProgress size={24} /> : 'Crear Usuario'}
             </Button>
           </Box>
         )}
 
-      {/* Información técnica removida para no confundir al usuario final */}
+        <Box sx={{ mt: 2, textAlign: 'center' }}>
+          <Link to="/login" style={{ textDecoration: 'none' }}>
+            <Button
+              variant="text"
+              size="small"
+              sx={{ textTransform: 'none' }}
+            >
+              ← Volver al Login
+            </Button>
+          </Link>
+        </Box>
+
       </Paper>
     </Container>
   );
