@@ -157,36 +157,48 @@ export default function RankingPage() {
         })
       );
 
-      // Convertir a formato de ranking y calcular puntos
-      const rankingData: RankingEntry[] = entriesWithUserData
-        .map((entry: any) => {
-          // Usar el campo status directamente de la base de datos
-          const status: 'alive' | 'last_chance' | 'eliminated' = entry.status;
-          
-          // Debug: ver los valores reales
-          console.log('Entry debug:', {
-            id: entry.id,
-            entry_name: entry.entry_name,
-            status: entry.status,
-            total_wins: entry.total_wins
-          });
+      // Convertir a formato de ranking y calcular puntos reales
+      const rankingData: RankingEntry[] = [];
+      
+      for (const entry of entriesWithUserData) {
+        // Usar el campo status directamente de la base de datos
+        const status: 'alive' | 'last_chance' | 'eliminated' = entry.status;
+        
+        // Calcular puntos reales desde la base de datos
+        const { data: entryPicks, error: picksError } = await supabase
+          .from('picks')
+          .select('points_earned')
+          .eq('entry_id', entry.id);
+        
+        let realPoints = 0;
+        if (entryPicks && !picksError) {
+          realPoints = entryPicks.reduce((sum, pick) => sum + (pick.points_earned || 0), 0);
+        }
 
-          // Calcular puntos: victorias * 10 + bonus por status
-          const points = (entry.total_wins || 0) * 10 + 
-                        (status === 'alive' ? 20 : status === 'last_chance' ? 10 : 0);
+        // Debug: ver los valores reales
+        console.log('Entry debug:', {
+          id: entry.id,
+          entry_name: entry.entry_name,
+          status: entry.status,
+          total_wins: entry.total_wins,
+          real_points: realPoints
+        });
 
-          return {
-            position: 0, // Se calculará después del sort
-            user_id: entry.user_id,
-            username: entry.username,
-            entry_name: entry.entry_name || `Entrada ${entry.id}`,
-            entry_id: entry.id,
-            status,
-            points,
-            total_wins: entry.total_wins || 0,
-            isUserEntry: user ? entry.user_id === user.id : false
-          };
-        })
+        rankingData.push({
+          position: 0, // Se calculará después del sort
+          user_id: entry.user_id,
+          username: entry.username,
+          entry_name: entry.entry_name || `Entrada ${entry.id}`,
+          entry_id: entry.id,
+          status,
+          points: realPoints, // Usar puntos reales
+          total_wins: entry.total_wins || 0,
+          isUserEntry: user ? entry.user_id === user.id : false
+        });
+      }
+
+      // Ordenar por puntos reales descendente, luego por total_wins descendente
+      const sortedRankingData = rankingData
         .sort((a: any, b: any) => {
           // Ordenar por puntos descendente, luego por total_wins descendente
           if (b.points !== a.points) return b.points - a.points;
@@ -197,7 +209,7 @@ export default function RankingPage() {
           position: index + 1
         }));
 
-      setRankingData(rankingData);
+      setRankingData(sortedRankingData);
       
       // Identificar entradas del usuario
       if (user) {

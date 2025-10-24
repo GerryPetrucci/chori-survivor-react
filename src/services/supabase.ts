@@ -361,6 +361,26 @@ export const entriesService = {
       .select()
       .single();
 
+    // Si la entrada se creó exitosamente, registrar la actividad
+    if (data && !error) {
+      try {
+        await notificationsService.createActivity(
+          userId,
+          'entry_created',
+          'Entrada creada',
+          `Nueva entrada creada: ${entryName}`,
+          {
+            entry_id: data.id,
+            entry_name: entryName,
+            season_id: seasonId
+          }
+        );
+      } catch (activityError) {
+        // Log el error pero no fallar la operación principal
+        console.error('Error creando actividad para entrada:', activityError);
+      }
+    }
+
     return { data, error };
   },
 
@@ -434,6 +454,32 @@ export const picksService = {
         selected_team:teams(*)
       `)
       .single();
+
+    // Si el pick se creó exitosamente, registrar la actividad
+    if (data && !error) {
+      try {
+        // Obtener información adicional para la descripción
+        const entryName = data.entry?.entry_name || `Entrada ${entryId}`;
+        const teamName = data.selected_team?.name || `Equipo ${teamId}`;
+        
+        await notificationsService.createActivity(
+          data.entry.user_id,
+          'pick_created',
+          'Pick realizado',
+          `Pick creado para ${entryName}: ${teamName} en semana ${week}`,
+          {
+            entry_id: entryId,
+            match_id: matchId,
+            team_id: teamId,
+            week: week,
+            season_id: seasonId
+          }
+        );
+      } catch (activityError) {
+        // Log el error pero no fallar la operación principal
+        console.error('Error creando actividad para pick:', activityError);
+      }
+    }
 
     return { data, error };
   },
@@ -588,6 +634,7 @@ export const dashboardService = {
               derrotas: 0,
               posicion_ranking: 0,
               semana_actual: latestSeason.current_week || 5,
+              total_points: 0,
               picks_recientes: []
             },
             error: null
@@ -614,6 +661,20 @@ export const dashboardService = {
       const totalWins = entries?.reduce((sum, e) => sum + (e.total_wins || 0), 0) || 0;
       const totalLosses = entries?.reduce((sum, e) => sum + (e.total_losses || 0), 0) || 0;
 
+      // Calcular puntos totales del usuario (suma de todas sus entradas)
+      let totalPoints = 0;
+      if (entries && entries.length > 0) {
+        for (const entry of entries) {
+          const { data: entryPicks } = await supabase
+            .from('picks')
+            .select('points_earned')
+            .eq('entry_id', entry.id);
+          
+          const entryPoints = entryPicks?.reduce((sum, pick) => sum + (pick.points_earned || 0), 0) || 0;
+          totalPoints += entryPoints;
+        }
+      }
+
       // Obtener ranking (simplificado por ahora)
       const { data: allEntries } = await supabase
         .from('entries')
@@ -630,6 +691,7 @@ export const dashboardService = {
         derrotas: totalLosses,
         posicion_ranking: userRank,
         semana_actual: season.current_week,
+        total_points: totalPoints,
         picks_recientes: []
       };
 
@@ -678,6 +740,14 @@ export const dashboardService = {
           .order('week', { ascending: false })
           .limit(5);
 
+        // Calcular total de puntos de la entrada
+        const { data: allPicks } = await supabase
+          .from('picks')
+          .select('points_earned')
+          .eq('entry_id', entryId);
+
+        const totalPoints = allPicks?.reduce((sum, pick) => sum + (pick.points_earned || 0), 0) || 0;
+
         const dashboardData = {
           entradas_activas: entry.is_active ? 1 : 0,
           victorias: entry.total_wins || 0,
@@ -686,6 +756,7 @@ export const dashboardService = {
           semana_actual: season?.current_week || null,
           picks_recientes: picks || [],
           entry_name: entry.entry_name,
+          total_points: totalPoints,
         };
 
         return { data: dashboardData, error: null };
@@ -727,6 +798,26 @@ export const userProfilesService = {
       .eq('id', userId)
       .select()
       .single();
+
+    // Si el perfil se actualizó exitosamente, registrar la actividad
+    if (data && !error) {
+      try {
+        const changedFields = Object.keys(updates).join(', ');
+        await notificationsService.createActivity(
+          userId,
+          'profile_updated',
+          'Perfil actualizado',
+          `Perfil actualizado: ${changedFields}`,
+          {
+            changed_fields: Object.keys(updates),
+            updates: updates
+          }
+        );
+      } catch (activityError) {
+        // Log el error pero no fallar la operación principal
+        console.error('Error creando actividad para actualización de perfil:', activityError);
+      }
+    }
 
     return { data, error };
   },

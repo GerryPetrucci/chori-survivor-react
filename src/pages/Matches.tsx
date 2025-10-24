@@ -19,6 +19,7 @@ import {
 } from '@mui/material';
 import { seasonsService } from '../services/supabase';
 import { supabase } from '../config/supabase';
+import OddsTooltip from '../components/ui/OddsTooltip';
 
 interface Match {
   id: number;
@@ -355,13 +356,14 @@ export default function MatchesPage() {
                   <TableCell align="center"><strong>Fecha y Hora</strong></TableCell>
                   <TableCell align="center"><strong>Resultado</strong></TableCell>
                   <TableCell align="center"><strong>Estado</strong></TableCell>
+                  <TableCell align="center"><strong>Odds</strong></TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {matches.map((match) => (
-                  <TableRow key={match.id}>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <TableRow key={match.id} sx={{ '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.04)' } }}>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                         {/* Away Team */}
                         <Box
                           component="img"
@@ -417,6 +419,13 @@ export default function MatchesPage() {
                         label={getStatusText(match.status)}
                         color={getStatusColor(match.status) as any}
                         size="small"
+                      />
+                    </TableCell>
+                    <TableCell align="center">
+                      <OddsTooltip
+                        matchId={match.id}
+                        homeTeam={match.home_team!}
+                        awayTeam={match.away_team!}
                       />
                     </TableCell>
                   </TableRow>

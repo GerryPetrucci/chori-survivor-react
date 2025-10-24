@@ -103,9 +103,31 @@ export default function NotificationsButton() {
     return () => clearInterval(interval);
   }, [user]);
 
-  const handleClick = (event: React.MouseEvent<HTMLElement>) => {
+  const handleClick = async (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
-    fetchNotifications();
+    
+    // Auto-mark all notifications as read when opening the menu
+    if (unreadCount > 0 && user?.id) {
+      try {
+        await notificationsService.markAllAsRead(user.id);
+        setUnreadCount(0);
+      } catch (error) {
+        console.error('Error auto-marking notifications as read:', error);
+      }
+    }
+    
+    // Fetch recent activities (both read and unread) for the menu
+    if (user?.id) {
+      setLoading(true);
+      try {
+        const { data: recentActivities } = await notificationsService.getUserActivities(user.id, 10);
+        setNotifications(recentActivities || []);
+      } catch (error) {
+        console.error('Error fetching recent activities:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
   };
 
   const handleClose = () => {
@@ -159,7 +181,12 @@ export default function NotificationsButton() {
           }
         }}
       >
-        <Badge badgeContent={unreadCount} color="error">
+        <Badge 
+          badgeContent={unreadCount > 0 ? unreadCount : undefined} 
+          color="error"
+          variant="dot"
+          invisible={unreadCount === 0}
+        >
           <Notifications />
         </Badge>
       </IconButton>
@@ -181,7 +208,7 @@ export default function NotificationsButton() {
         <Box sx={{ px: 2, py: 1, borderBottom: 1, borderColor: 'divider' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6">
-              Notificaciones
+              Actividad Reciente
             </Typography>
             {unreadCount > 0 && (
               <Button
@@ -193,9 +220,13 @@ export default function NotificationsButton() {
               </Button>
             )}
           </Box>
-          {unreadCount > 0 && (
+          {unreadCount > 0 ? (
             <Typography variant="body2" color="text.secondary">
-              {unreadCount} nueva{unreadCount > 1 ? 's' : ''}
+              {unreadCount} nueva{unreadCount > 1 ? 's' : ''} • Marcadas como leídas al abrir
+            </Typography>
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              Todas las notificaciones han sido leídas
             </Typography>
           )}
         </Box>
@@ -210,13 +241,20 @@ export default function NotificationsButton() {
           <MenuItem>
             <Box sx={{ textAlign: 'center', py: 2 }}>
               <Typography variant="body2" color="text.secondary">
-                No hay notificaciones nuevas
+                No hay actividad reciente
               </Typography>
             </Box>
           </MenuItem>
         ) : (
           notifications.slice(0, 10).map((notification) => (
-            <MenuItem key={notification.id} sx={{ py: 1.5 }}>
+            <MenuItem 
+              key={notification.id} 
+              sx={{ 
+                py: 1.5,
+                opacity: notification.is_read ? 0.7 : 1,
+                backgroundColor: notification.is_read ? 'transparent' : 'rgba(25, 118, 210, 0.04)'
+              }}
+            >
               <ListItemIcon>
                 {getActivityIcon(notification.activity_type)}
               </ListItemIcon>

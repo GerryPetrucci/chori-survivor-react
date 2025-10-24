@@ -12,6 +12,7 @@ import RequestPasswordResetPage from '../pages/RequestPasswordReset.tsx';
 import DashboardPage from '../pages/Dashboard.tsx';
 import PicksPage from '../pages/Picks.tsx';
 import MatchesPage from '../pages/Matches.tsx';
+import TrendsPage from '../pages/Trends.tsx';
 import RankingPage from '../pages/Ranking.tsx';
 import ProfilePage from '../pages/Profile.tsx';
 import RulesPage from '../pages/Rules.tsx';
@@ -79,6 +80,7 @@ export default function AppRouter() {
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="picks" element={<PicksPage />} />
             <Route path="matches" element={<MatchesPage />} />
+            <Route path="trends" element={<TrendsPage />} />
             <Route path="ranking" element={<RankingPage />} />
             <Route path="profile" element={<ProfilePage />} />
             <Route path="rules" element={<RulesPage />} />
