@@ -314,7 +314,11 @@ export default function RulesPage() {
                   ⚡ <strong>Resultado: Derrota Automática</strong>
                 </Typography>
               }
-              secondary="Como el equipo asignado automáticamente perdió, significa una DERROTA AUTOMÁTICA para tu entrada."
+              secondary={
+                <Typography sx={{ color: 'white', fontWeight: 'bold' }}>
+                  Como el equipo asignado automáticamente perdió, significa una <strong>DERROTA AUTOMÁTICA</strong> para tu entrada.
+                </Typography>
+              }
             />
           </ListItem>
         </List>

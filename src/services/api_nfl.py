@@ -1,3 +1,4 @@
+# type: ignore
 from fastapi import FastAPI, HTTPException, Query, Body
 from supabase import create_client, Client
 from datetime import datetime, timedelta
@@ -19,18 +20,18 @@ env_path = root_dir / '.env'
 load_dotenv(env_path)
 load_dotenv(env_local_path)
 
-# Configuración de logging
+# Configuracion de logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('matches_update.log'),
+        logging.FileHandler('matches_update.log', encoding='utf-8'),
         logging.StreamHandler()
     ]
 )
 logger = logging.getLogger(__name__)
 
-# Configuración de Supabase
+# Configuraci├│n de Supabase
 SUPABASE_URL = os.getenv("VITE_SUPABASE_URL")
 SUPABASE_KEY = os.getenv("VITE_SUPABASE_ANON_KEY")
 
@@ -40,7 +41,7 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Configuración de NFL API Data
+# Configuraci├│n de NFL API Data
 RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY", "115f54c5d8msh65bec7d1186e70fp12be67jsn8fc1b8736a43")
 BASE_URL = "https://nfl-api-data.p.rapidapi.com"
 RAPIDAPI_HOST = "nfl-api-data.p.rapidapi.com"
@@ -56,20 +57,367 @@ def validate_score(score):
     except (ValueError, TypeError):
         return None
 
+class UpdateOddsRequest(BaseModel):
+    week: int = None
+
+@app.get("/get-weekly-odds")
+async def get_weekly_odds(week: int = Query(..., description="Número de semana")):
+    """
+    Obtener odds de la semana específica
+    """
+    try:
+        logger.info(f"Consultando odds para la semana {week}")
+        
+        # Obtener season_id actual
+        season_query = supabase.table("seasons").select("id").eq("year", 2025).execute()
+        if not season_query.data:  # type: ignore
+            raise HTTPException(status_code=404, detail="No se encontró la temporada 2025")
+        
+        season_id = season_query.data[0]['id']  # type: ignore
+        
+        # Consultar weekly_odds con información de equipos
+        odds_query = supabase.table("weekly_odds").select("""
+            *,
+            matches(
+                id,
+                game_date,
+                home_team_id,
+                away_team_id,
+                home_teams:home_team_id(name, abbreviation),
+                away_teams:away_team_id(name, abbreviation)
+            )
+        """).eq("week_number", week).execute()
+        
+        if not odds_query.data:  # type: ignore
+            return []
+        
+        return odds_query.data  # type: ignore
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo weekly odds: {e}")
+        raise HTTPException(status_code=500, detail=f"Error obteniendo odds: {str(e)}")
+
+
+def find_team_match(api_team_name, db_teams):
+    """
+    Buscar coincidencia entre nombre de API y equipos de base de datos
+    """
+    api_name_lower = api_team_name.lower()
+    
+    # Mapeo manual de nombres de API a nombres de DB
+    team_mappings = {
+        'detroit lions': 'Lions',
+        'los angeles chargers': 'Chargers',
+        'philadelphia eagles': 'Eagles',
+        'dallas cowboys': 'Cowboys',
+        'kansas city chiefs': 'Chiefs',
+        'atlanta falcons': 'Falcons',
+        'tampa bay buccaneers': 'Buccaneers',
+        'cleveland browns': 'Browns',
+        'cincinnati bengals': 'Bengals',
+        'san francisco 49ers': '49ers',
+        'chicago bears': 'Bears',
+        'buffalo bills': 'Bills',
+        'denver broncos': 'Broncos',
+        'arizona cardinals': 'Cardinals',
+        'new york giants': 'Giants',
+        'washington commanders': 'Commanders',
+        'new york jets': 'Jets',
+        'miami dolphins': 'Dolphins',
+        'new england patriots': 'Patriots',
+        'baltimore ravens': 'Ravens',
+        'pittsburgh steelers': 'Steelers',
+        'houston texans': 'Texans',
+        'indianapolis colts': 'Colts',
+        'jacksonville jaguars': 'Jaguars',
+        'tennessee titans': 'Titans',
+        'green bay packers': 'Packers',
+        'minnesota vikings': 'Vikings',
+        'carolina panthers': 'Panthers',
+        'new orleans saints': 'Saints',
+        'los angeles rams': 'Rams',
+        'seattle seahawks': 'Seahawks',
+        'las vegas raiders': 'Raiders'
+    }
+    
+    # Buscar mapeo directo
+    if api_name_lower in team_mappings:
+        target_name = team_mappings[api_name_lower]
+        for team in db_teams:
+            if team['name'] == target_name:
+                return team
+    
+    # Buscar por coincidencia parcial en el nombre
+    for team in db_teams:
+        team_name_lower = team['name'].lower()
+        if team_name_lower in api_name_lower or api_name_lower.endswith(team_name_lower):
+            return team
+    
+    return None
+
+
+@app.post("/update-weekly-odds")
+async def update_weekly_odds(body: UpdateOddsRequest = Body(None)):
+    """
+    Actualiza las odds de la semana actual de NFL.
+    Si se especifica 'week', actualiza esa semana específica.
+    Si no se especifica, actualiza la semana actual.
+    """
+    try:
+        week_param = body.week if body else None
+        odds_updated = 0
+        odds_inserted = 0
+        
+        # Obtener temporada activa
+        season_query = supabase.table("seasons").select("*").eq("is_active", True).execute()
+        if not season_query.data:  # type: ignore
+            raise HTTPException(status_code=404, detail="No se encontró temporada activa")
+        
+        current_season = season_query.data[0]  # type: ignore
+        season_id = current_season['id']
+        
+        # Determinar qué semana procesar
+        if week_param is None:
+            # TODO: Lógica para determinar semana actual
+            week_param = 8  # Por ahora, usar semana 8 como ejemplo
+        
+        logger.info(f"INICIANDO: Actualización de odds - Semana {week_param}")
+        
+        # Obtener partidos de la semana desde la base de datos
+        matches_query = supabase.table("matches").select(
+            "id, home_team_id, away_team_id, game_date, week"
+        ).eq("season_id", season_id).eq("week", week_param).execute()
+        
+        if not matches_query.data:  # type: ignore
+            return {
+                "odds_updated": 0,
+                "odds_inserted": 0,
+                "status": "no_matches_found",
+                "message": f"No se encontraron partidos para la semana {week_param}"
+            }
+        
+        matches = matches_query.data  # type: ignore
+        logger.info(f"Procesando odds para {len(matches)} partidos de la semana {week_param}")
+        
+        # Obtener eventos de la API para la semana
+        logger.info(f"Obteniendo eventos de la semana {week_param} desde la API")
+        
+        # Obtener eventos desde la API NFL por año (2025)
+        current_year = 2025  # Temporada NFL 2025-2026
+        url = f"{BASE_URL}/nfl-events"
+        
+        try:
+            headers_api = {
+                'X-RapidAPI-Key': RAPIDAPI_KEY,
+                'X-RapidAPI-Host': RAPIDAPI_HOST
+            }
+            params_api = {
+                'year': current_year
+            }
+            response = requests.get(url, headers=headers_api, params=params_api, timeout=30)
+            response.raise_for_status()
+            data = response.json()
+            
+            events = data.get('events', [])
+            logger.info(f"TOTAL EVENTS FOUND: {len(events)}")
+            
+            # Filtrar eventos de la semana específica
+            week_events = []
+            for event in events:
+                season_year = event.get('season', {}).get('year', None)
+                week_num = event.get('week', {}).get('number', None)
+                if season_year == 2025 and week_num == week_param:
+                    week_events.append(event)
+            
+            logger.info(f"Eventos de semana {week_param} encontrados: {len(week_events)}")
+            
+        except Exception as e:
+            logger.error(f"Error obteniendo eventos de la API: {e}")
+            raise HTTPException(status_code=500, detail=f"Error obteniendo eventos: {str(e)}")
+        
+        # Crear un diccionario para mapear equipos de API a database
+        teams_query = supabase.table("teams").select("id, name, city, abbreviation").execute()
+        db_teams = []
+        if teams_query.data:  # type: ignore
+            db_teams = teams_query.data  # type: ignore
+        
+        for match in matches:
+            match_id = match['id']
+            home_team_id = match['home_team_id']
+            away_team_id = match['away_team_id']
+            
+            # Obtener nombres de equipos de la database
+            home_team_query = supabase.table("teams").select("name").eq("id", home_team_id).execute()
+            away_team_query = supabase.table("teams").select("name").eq("id", away_team_id).execute()
+            
+            if not home_team_query.data or not away_team_query.data:  # type: ignore
+                logger.warning(f"No se encontraron nombres de equipos para match {match_id}")
+                continue
+                
+            home_team_name = home_team_query.data[0]['name']  # type: ignore
+            away_team_name = away_team_query.data[0]['name']  # type: ignore
+            
+            # Buscar el evento en week_events que coincida con estos equipos
+            matching_event = None
+            for event in week_events:
+                competitors = event.get('competitions', [{}])[0].get('competitors', [])
+                if len(competitors) >= 2:
+                    api_team_names = [comp.get('team', {}).get('displayName', '') for comp in competitors]
+                    
+                    # Buscar coincidencias usando la función de matching
+                    home_match = None
+                    away_match = None
+                    
+                    for api_name in api_team_names:
+                        matched_team = find_team_match(api_name, db_teams)
+                        if matched_team:
+                            if matched_team['name'] == home_team_name:
+                                home_match = api_name
+                            elif matched_team['name'] == away_team_name:
+                                away_match = api_name
+                    
+                    # Si encontramos ambos equipos, es una coincidencia
+                    if home_match and away_match:
+                        matching_event = event
+                        logger.info(f"Match encontrado: {home_team_name} ({home_match}) vs {away_team_name} ({away_match})")
+                        break
+            
+            if not matching_event:
+                logger.warning(f"No se encontró evento de API para match {match_id} ({home_team_name} vs {away_team_name})")
+                continue
+                
+            event_api_id = matching_event.get('id')
+            logger.info(f"Procesando odds para match {match_id}: {home_team_name} vs {away_team_name} (API ID: {event_api_id})")
+            
+            # Obtener odds del evento
+            try:
+                odds_url = f"{BASE_URL}/nfl-eventodds"
+                odds_params = {
+                    'id': event_api_id
+                }
+                odds_response = requests.get(odds_url, headers={
+                    'X-RapidAPI-Key': RAPIDAPI_KEY,
+                    'X-RapidAPI-Host': RAPIDAPI_HOST
+                }, params=odds_params, timeout=30)
+                odds_response.raise_for_status()
+                odds_data = odds_response.json()
+                
+                # Procesar odds
+                odds_items = odds_data.get('items', [])
+                if not odds_items:
+                    logger.info(f"No hay odds disponibles para evento {event_api_id}")
+                    continue
+                
+                # Usar el primer provider (mayor prioridad)
+                primary_odds = odds_items[0]
+                provider_name = primary_odds.get('provider', {}).get('name', 'Unknown')
+                
+                # Preparar datos para inserción/actualización usando la estructura real de la tabla
+                odds_record = {
+                    'match_id': match_id,
+                    'event_api_id': event_api_id,
+                    'week_number': week_param,
+                    'season_id': season_id,
+                    'home_team_id': home_team_id,
+                    'away_team_id': away_team_id,
+                    'game_date': match['game_date'],
+                    'provider_name': provider_name,
+                    'spread': None,
+                    'home_spread_odds': None,
+                    'away_spread_odds': None,
+                    'home_moneyline': None,
+                    'away_moneyline': None,
+                    'over_under': None,
+                    'over_odds': None,
+                    'under_odds': None,
+                    'home_is_favorite': None,
+                    'away_is_favorite': None,
+                    'last_updated': datetime.now(pytz.timezone('America/Mexico_City')).isoformat()
+                }
+                
+                # Extraer spread data
+                spread_value = primary_odds.get('spread')
+                if spread_value is not None:
+                    odds_record['spread'] = spread_value
+                
+                # Extraer moneyline y spread odds de los equipos
+                home_team_odds = primary_odds.get('homeTeamOdds', {})
+                away_team_odds = primary_odds.get('awayTeamOdds', {})
+                
+                if isinstance(home_team_odds, dict):
+                    odds_record['home_moneyline'] = home_team_odds.get('moneyLine')
+                    odds_record['home_spread_odds'] = home_team_odds.get('spreadOdds')
+                    odds_record['home_is_favorite'] = home_team_odds.get('favorite', False)
+                
+                if isinstance(away_team_odds, dict):
+                    odds_record['away_moneyline'] = away_team_odds.get('moneyLine')
+                    odds_record['away_spread_odds'] = away_team_odds.get('spreadOdds')
+                    odds_record['away_is_favorite'] = away_team_odds.get('favorite', False)
+                
+                # Extraer over/under data
+                over_under_value = primary_odds.get('overUnder')
+                if over_under_value is not None:
+                    odds_record['over_under'] = over_under_value
+                    odds_record['over_odds'] = primary_odds.get('overOdds')
+                    odds_record['under_odds'] = primary_odds.get('underOdds')
+                
+                # Verificar si ya existe un registro para este match
+                logger.info(f"Intentando insertar/actualizar odds: {odds_record}")
+                
+                existing_query = supabase.table("weekly_odds").select("id").eq("match_id", match_id).eq("week_number", week_param).execute()
+                
+                if existing_query.data:  # type: ignore
+                    # Actualizar registro existente
+                    logger.info(f"Actualizando registro existente para match {match_id}")
+                    update_result = supabase.table("weekly_odds").update(odds_record).eq("match_id", match_id).eq("week_number", week_param).execute()
+                    if update_result.data:  # type: ignore
+                        odds_updated += 1
+                        logger.info(f"✅ Odds actualizados para match {match_id}, provider {provider_name}")
+                    else:
+                        logger.warning(f"❌ Error actualizando odds para match {match_id}: {update_result}")
+                else:
+                    # Insertar nuevo registro
+                    logger.info(f"Insertando nuevo registro para match {match_id}")
+                    insert_result = supabase.table("weekly_odds").insert(odds_record).execute()
+                    if insert_result.data:  # type: ignore
+                        odds_inserted += 1
+                        logger.info(f"✅ Odds insertados para match {match_id}, provider {provider_name}")
+                    else:
+                        logger.warning(f"❌ Error insertando odds para match {match_id}: {insert_result}")
+            
+            except Exception as e:
+                logger.error(f"Error procesando odds para evento {event_api_id}: {e}")
+                continue
+        
+        logger.info(f"COMPLETADO - Odds actualizadas: {odds_updated}, Odds insertadas: {odds_inserted}")
+        
+        return {
+            "odds_updated": odds_updated,
+            "odds_inserted": odds_inserted,
+            "week": week_param,
+            "status": "completed"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error crítico en update_weekly_odds: {e}")
+        raise HTTPException(status_code=500, detail=f"Error actualizando odds: {str(e)}")
+
 class UpdateMatchesRequest(BaseModel):
     week: int = None
 
 @app.post("/update-matches")
-async def update_matches(
-    week: int = Query(None, description="Número de semana a procesar"),
-    body: UpdateMatchesRequest = Body(None)
-):
+async def update_matches(body: UpdateMatchesRequest = Body(None)):
     """
-    Actualiza o agrega partidos de NFL en la base de datos Supabase. Si se proporciona el parámetro 'week', solo procesa esa semana.
+    Actualiza o agrega partidos de NFL en la base de datos Supabase. 
+    Si se proporciona 'week' en el body, solo procesa esa semana específica.
+    Si no se proporciona 'week' o body, procesa desde la semana actual hacia adelante.
+    
+    Ejemplos de uso:
+    - POST /update-matches (sin body) -> procesa semana actual hacia adelante
+    - POST /update-matches {"week": 1} -> procesa solo semana 1
     """
     try:
-        # Prioridad: body > query
-        week_param = body.week if body and body.week is not None else week
+        week_param = body.week if body else None
         matches_updated = 0
         matches_inserted = 0
 
@@ -90,7 +438,7 @@ async def update_matches(
         
         # Temporada NFL 2025-2026: Septiembre 2025 a Febrero 2026
         # Semana 1 regular: ~4 de septiembre 2025
-        # Última semana playoff/Super Bowl: ~8 de febrero 2026
+        # ├Ültima semana playoff/Super Bowl: ~8 de febrero 2026
         season_start = datetime(2025, 9, 4, tzinfo=pytz.utc)  # Inicio temporada 2025
         season_end = datetime(2026, 2, 8, tzinfo=pytz.utc)    # Final temporada (Super Bowl)
         
@@ -114,7 +462,7 @@ async def update_matches(
         # Obtener eventos desde la API NFL por año (2025)
         current_year = 2025  # Temporada NFL 2025-2026
         url = f"{BASE_URL}/nfl-events"
-        logger.info(f"Consultando API NFL para el año {current_year}")
+        logger.info(f"Consultando API NFL para el a├▒o {current_year}")
         
         try:
             headers = {
@@ -137,7 +485,7 @@ async def update_matches(
             logger.info(f"DATA KEYS: {data.keys() if isinstance(data, dict) else 'Not dict'}")
             
             if not data or 'events' not in data or not data['events']:
-                logger.info(f"NO EVENTS: Sin eventos para el año {current_year}")
+                logger.info(f"NO EVENTS: Sin eventos para el a├▒o {current_year}")
                 return {
                     "matches_updated": 0,
                     "matches_inserted": 0,
@@ -147,28 +495,32 @@ async def update_matches(
             events = data.get('events', [])
             logger.info(f"TOTAL EVENTS FOUND: {len(events)}")
             
-            # Filtrar solo eventos desde la fecha actual hacia adelante
-            today = datetime.now(pytz.utc)
-            filtered_events = []
-            
-            for event in events:
-                event_date = event.get('date')
-                if not event_date:
-                    continue
-                    
-                try:
-                    event_dt = datetime.strptime(event_date, "%Y-%m-%dT%H:%MZ")
-                    event_dt = pytz.utc.localize(event_dt)
-                    
-                    # Solo procesar eventos desde hoy hacia adelante
-                    if event_dt.date() >= today.date():
-                        filtered_events.append(event)
-                except Exception as e:
-                    logger.warning(f"Error parseando fecha {event_date}: {e}")
-                    continue
-            
-            events = filtered_events
-            logger.info(f"FILTERED EVENTS (from today onwards): {len(events)}")
+            # Solo filtrar por fecha si NO se especificó una semana específica
+            if week_param is None:
+                # Filtrar solo eventos desde la fecha actual hacia adelante
+                today = datetime.now(pytz.utc)
+                filtered_events = []
+                
+                for event in events:
+                    event_date = event.get('date')
+                    if not event_date:
+                        continue
+                        
+                    try:
+                        event_dt = datetime.strptime(event_date, "%Y-%m-%dT%H:%MZ")
+                        event_dt = pytz.utc.localize(event_dt)
+                        
+                        # Solo procesar eventos desde hoy hacia adelante
+                        if event_dt.date() >= today.date():
+                            filtered_events.append(event)
+                    except Exception as e:
+                        logger.warning(f"Error parseando fecha {event_date}: {e}")
+                        continue
+                
+                events = filtered_events
+                logger.info(f"FILTERED EVENTS (from today onwards): {len(events)}")
+            else:
+                logger.info(f"PROCESANDO SEMANA ESPECÍFICA {week_param}: No filtrar por fecha, procesando todos los eventos")
             
         except Exception as e:
             logger.error(f"ERROR API: {url} - {e}")
@@ -184,40 +536,41 @@ async def update_matches(
                 logger.warning(f"Evento sin fecha: {event.get('id')}")
                 continue
             
-            # Parsear fecha del evento y convertir a CDMX timezone
+            # Parsear fecha del evento y convertir a hora de Mexico (UTC-6)
             try:
                 event_dt = datetime.strptime(event_date, "%Y-%m-%dT%H:%MZ")
                 event_dt = pytz.utc.localize(event_dt)
-                # Convertir a timezone de CDMX (America/Mexico_City)
-                cdmx_time = event_dt.astimezone(CDMX_TZ)
-                game_datetime = cdmx_time.strftime("%Y-%m-%d %H:%M:%S")
+                # Convertir a hora de Mexico (UTC-6)
+                mexico_tz = pytz.timezone('America/Mexico_City')
+                event_dt_mexico = event_dt.astimezone(mexico_tz)
+                game_datetime = event_dt_mexico.strftime("%Y-%m-%d %H:%M:%S")
             except Exception as e:
                 logger.warning(f"Error parseando fecha {event_date}: {e}")
                 continue
             
-            # Obtener número de semana desde la API
+            # Obtener n├║mero de semana desde la API
             week_info = event.get('week', {})
             week_num = week_info.get('number')
             if not week_num:
-                logger.warning(f"Evento sin número de semana: {event.get('id')}")
+                logger.warning(f"Evento sin n├║mero de semana: {event.get('id')}")
                 continue
                 
-            # Si se especificó una semana específica, ignorar eventos de otras semanas
+            # Si se especific├│ una semana espec├¡fica, ignorar eventos de otras semanas
             if week_param is not None and int(week_num) != week_param:
                 logger.info(f"Ignorando evento de semana {week_num} (solicitada semana {week_param})")
                 continue
             
-            # Obtener información de la competición (partido)
+            # Obtener informaci├│n de la competici├│n (partido)
             competitions = event.get('competitions', [])
             if not competitions:
                 logger.warning(f"Evento sin competiciones: {event.get('id')}")
                 continue
             
-            competition = competitions[0]  # Tomar la primera competición
+            competition = competitions[0]  # Tomar la primera competici├│n
             competitors = competition.get('competitors', [])
             
             if len(competitors) != 2:
-                logger.warning(f"Competición sin 2 equipos: {event.get('id')}")
+                logger.warning(f"Competici├│n sin 2 equipos: {event.get('id')}")
                 continue
             
             # Identificar home/away teams
@@ -228,25 +581,31 @@ async def update_matches(
                 logger.warning(f"No se pudieron identificar equipos home/away: {event.get('id')}")
                 continue
             
-            # Extraer nombres de equipos
-            home_team_name = home_team_data['team']['location'] + ' ' + home_team_data['team']['name']
-            away_team_name = away_team_data['team']['location'] + ' ' + away_team_data['team']['name']
+            # Extraer nombres de equipos con manejo de errores
+            try:
+                home_team_name = home_team_data['team']['location'] + ' ' + home_team_data['team']['name']
+                away_team_name = away_team_data['team']['location'] + ' ' + away_team_data['team']['name']
+            except KeyError as e:
+                logger.warning(f"Error extrayendo nombres de equipos para evento {event.get('id')}: {e}")
+                logger.debug(f"home_team_data: {home_team_data}")
+                logger.debug(f"away_team_data: {away_team_data}")
+                continue
             
             # Extraer scores si existen
             home_score = validate_score(home_team_data.get('score'))
             away_score = validate_score(away_team_data.get('score'))
             
-            # Verificar si el partido está completado
+            # Verificar si el partido est├í completado
             status = competition.get('status', {}).get('type', {})
             is_completed = status.get('completed', False)
             # Buscar los equipos por nombre
             logger.info(f"Buscando equipos: {home_team_name} vs {away_team_name}")
             
-            # Usar abreviaciones para búsqueda más precisa
+            # Usar abreviaciones para b├║squeda m├ís precisa
             home_abbr = home_team_data['team']['abbreviation']
             away_abbr = away_team_data['team']['abbreviation']
             
-            # Buscar por abreviación primero, luego por nombre
+            # Buscar por abreviaci├│n primero, luego por nombre
             home_team_query = supabase.table("teams").select("id, name, abbreviation").eq("abbreviation", home_abbr).execute()
             if not home_team_query.data:
                 home_team_query = supabase.table("teams").select("id, name, abbreviation").ilike("name", f"%{home_team_data['team']['name']}%").execute()
@@ -255,13 +614,13 @@ async def update_matches(
             if not away_team_query.data:
                 away_team_query = supabase.table("teams").select("id, name, abbreviation").ilike("name", f"%{away_team_data['team']['name']}%").execute()
             
-            logger.info(f"Resultados búsqueda - Home: {home_team_query.data}, Away: {away_team_query.data}")
+            logger.info(f"Resultados b├║squeda - Home: {home_team_query.data}, Away: {away_team_query.data}")
             
             if not home_team_query.data or not away_team_query.data:
                 logger.warning(f"Equipos no encontrados: {home_team_name} vs {away_team_name}")
                 continue
-            home_team_id = home_team_query.data[0]['id']
-            away_team_id = away_team_query.data[0]['id']
+            home_team_id = home_team_query.data[0]['id']  # type: ignore
+            away_team_id = away_team_query.data[0]['id']  # type: ignore
             
             logger.info(f"IDs encontrados - Home: {home_team_id}, Away: {away_team_id}")
             
@@ -295,11 +654,11 @@ async def update_matches(
                         update_data["game_date"] = game_datetime
                     logger.info(f"Actualizando partido ID {match['id']} con datos: {update_data}")
                     result = supabase.table("matches").update(update_data).eq("id", match['id']).execute()
-                    logger.info(f"Resultado actualización: {result}")
+                    logger.info(f"Resultado actualizaci├│n: {result}")
                     matches_updated += 1
                     logger.info(f"Actualizado: {home_team_name} {home_score} - {away_score} {away_team_name} (Semana {week_num})")
                 else:
-                    logger.info(f"No necesita actualización: {home_team_name} vs {away_team_name} (marcadores iguales)")
+                    logger.info(f"No necesita actualizaci├│n: {home_team_name} vs {away_team_name} (marcadores iguales)")
             else:
                 # Insertar nuevo partido
                 insert_data = {
@@ -327,13 +686,13 @@ async def update_matches(
             "status": "completed"
         }
     except Exception as e:
-        logger.error(f"Error crítico durante la actualización: {e}")
-        raise HTTPException(status_code=500, detail=f"Error crítico durante la actualización de partidos: {str(e)}")
+        logger.error(f"Error cr├¡tico durante la actualizaci├│n: {e}")
+        raise HTTPException(status_code=500, detail=f"Error cr├¡tico durante la actualizaci├│n de partidos: {str(e)}")
 
 @app.post("/set-current-week")
 async def set_current_week():
     """
-    Calcula y actualiza automáticamente la semana actual en la temporada activa.
+    Calcula y actualiza autom├íticamente la semana actual en la temporada activa.
     """
     try:
         season_query = supabase.table("seasons").select("*").eq("is_active", True).execute()
@@ -341,60 +700,20 @@ async def set_current_week():
             raise HTTPException(status_code=404, detail="No hay temporada activa")
         current_season = season_query.data[0]
         today = datetime.now(pytz.utc)
-        season_id = current_season['id']
-        
-        # Obtener todos los partidos de la temporada actual, ordenados por semana y fecha
-        matches_query = supabase.table("matches").select("week, game_date").eq("season_id", season_id).order("week").order("game_date").execute()
-        matches = matches_query.data if matches_query.data else []
-        
-        # Agrupar partidos por semana
-        from collections import defaultdict
-        weeks_games = defaultdict(list)
-        for m in matches:
-            weeks_games[m['week']].append(m)
-        
-        # Calcular el inicio de cada semana
-        week_start_dates = {}
-        sorted_weeks = sorted(weeks_games.keys())
-        
-        for i, week in enumerate(sorted_weeks):
-            if i == 0:
-                # Semana 1 empieza en la fecha de inicio de la temporada
-                if current_season.get('start_date'):
-                    season_start = datetime.strptime(current_season['start_date'], "%Y-%m-%d")
-                    season_start = pytz.utc.localize(season_start)
-                else:
-                    season_start = datetime(current_season['year'], 9, 4, tzinfo=pytz.utc)
-                week_start_dates[week] = season_start
-            else:
-                prev_week = sorted_weeks[i-1]
-                # Buscar el último partido de la semana anterior
-                last_game = max(weeks_games[prev_week], key=lambda x: x['game_date'])
-                # Convertir game_date a datetime (manejar formato ISO)
-                game_date_str = last_game['game_date']
-                if 'T' in game_date_str:
-                    # Formato ISO: 2025-09-08T18:15:00
-                    last_game_dt = datetime.strptime(game_date_str, "%Y-%m-%dT%H:%M:%S")
-                else:
-                    # Formato estándar: 2025-09-08 18:15:00
-                    last_game_dt = datetime.strptime(game_date_str, "%Y-%m-%d %H:%M:%S")
-                last_game_dt = pytz.utc.localize(last_game_dt)
-                # El inicio de la semana es el día siguiente a las 00:00
-                week_start_dates[week] = (last_game_dt + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-        
-        # Determinar la semana actual
-        calculated_week = 0
-        for week in sorted_weeks:
-            if today >= week_start_dates[week]:
-                calculated_week = week
-            else:
-                break
-        
+        if current_season.get('start_date'):
+            season_start = datetime.strptime(current_season['start_date'], "%Y-%m-%d")
+            season_start = pytz.utc.localize(season_start)
+        else:
+            season_start = datetime(current_season['year'], 9, 4, tzinfo=pytz.utc)
+        if today < season_start:
+            calculated_week = 0
+        else:
+            weeks_passed = (today - season_start).days // 7
+            calculated_week = min(weeks_passed + 1, current_season.get('max_weeks', 18))
         supabase.table("seasons").update({
             "current_week": calculated_week
         }).eq("id", current_season['id']).execute()
-        
-        logger.info(f"Semana actual actualizada automáticamente a: {calculated_week}")
+        logger.info(f"Semana actual actualizada autom├íticamente a: {calculated_week}")
         return {
             "current_week": calculated_week,
             "season_year": current_season['year'],
@@ -404,6 +723,38 @@ async def set_current_week():
     except Exception as e:
         logger.error(f"Error al actualizar la semana actual: {e}")
         raise HTTPException(status_code=500, detail=f"Error al actualizar la semana actual: {str(e)}")
+
+@app.get("/current-week")
+async def get_current_week():
+    try:
+        season_query = supabase.table("seasons").select("*").eq("is_active", True).execute()
+        if not season_query.data:
+            raise HTTPException(status_code=404, detail="No hay temporada activa")
+        current_season = season_query.data[0]
+        today = datetime.now(pytz.utc)
+        if current_season.get('start_date'):
+            season_start = datetime.strptime(current_season['start_date'], "%Y-%m-%d")
+            season_start = pytz.utc.localize(season_start)
+        else:
+            season_start = datetime(current_season['year'], 9, 4, tzinfo=pytz.utc)
+        if today < season_start:
+            calculated_week = 0
+        else:
+            weeks_passed = (today - season_start).days // 7
+            calculated_week = min(weeks_passed + 1, current_season.get('max_weeks', 18))
+        supabase.table("seasons").update({
+            "current_week": calculated_week
+        }).eq("id", current_season['id']).execute()
+        logger.info(f"Semana actual actualizada a: {calculated_week}")
+        return {
+            "current_week": calculated_week,
+            "season_year": current_season['year'],
+            "season_id": current_season['id'],
+            "updated": True
+        }
+    except Exception as e:
+        logger.error(f"Error al calcular la semana actual: {e}")
+        raise HTTPException(status_code=500, detail=f"Error al calcular la semana actual: {str(e)}")
 
 @app.get("/test-env")
 async def test_env():
@@ -433,10 +784,10 @@ async def list_teams():
 
 @app.get("/update-matches/{year}")
 async def update_matches_by_year(year: int):
-    """Actualiza partidos para un año específico"""
+    """Actualiza partidos para un a├▒o espec├¡fico"""
     try:
         if year < 2020 or year > 2030:
-            raise HTTPException(status_code=400, detail="Año debe estar entre 2020 y 2030")
+            raise HTTPException(status_code=400, detail="A├▒o debe estar entre 2020 y 2030")
         
         url = f"{BASE_URL}/nfl-events"
         headers = {
@@ -465,7 +816,7 @@ async def update_matches_by_year(year: int):
 @app.get("/test-api")
 async def test_api():
     try:
-        # Usar año actual para probar la nueva API
+        # Usar a├▒o actual para probar la nueva API
         test_year = datetime.now().year
         url = f"{BASE_URL}/nfl-events"
         headers = {
@@ -496,12 +847,12 @@ async def test_api():
             "url": f"{BASE_URL}/nfl-events?year={datetime.now().year}"
         }
 
-# --- LÓGICA DE ACTUALIZACIÓN DE PICKS Y ENTRIES ---
+# --- L├ôGICA DE ACTUALIZACI├ôN DE PICKS Y ENTRIES ---
 from collections import defaultdict
 
 def update_picks_and_entries(supabase, season_id, week_num):
     """
-    Actualiza los picks y las entradas en Supabase, calculando puntos, estado, streaks y estadísticas.
+    Actualiza los picks y las entradas en Supabase, calculando puntos, estado, streaks y estad├¡sticas.
     """
     # Obtener todos los picks de la temporada hasta la semana actual
     picks_query = supabase.table("picks").select("* , entry_id").eq("season_id", season_id).lte("week", week_num).execute()
@@ -562,7 +913,7 @@ def update_picks_and_entries(supabase, season_id, week_num):
 
 def update_entry_statistics(supabase, season_id):
     """
-    Actualiza todas las estadísticas de las entradas basándose en los picks.
+    Actualiza todas las estad├¡sticas de las entradas bas├índose en los picks.
     Calcula: total_wins, total_losses, longest_streak, current_streak, status, eliminated_week
     """
     entries_updated = 0
@@ -579,7 +930,7 @@ def update_entry_statistics(supabase, season_id):
         picks_query = supabase.table("picks").select("*").eq("entry_id", entry_id).eq("season_id", season_id).order("week").execute()
         picks = picks_query.data if picks_query.data else []
         
-        # Calcular estadísticas
+        # Calcular estad├¡sticas
         total_wins = 0
         total_losses = 0
         current_streak = 0
@@ -603,19 +954,19 @@ def update_entry_statistics(supabase, season_id):
                 loss_count += 1
                 temp_streak = 0  # Reset streak on loss
                 
-                # Lógica de eliminación
+                # L├│gica de eliminaci├│n
                 if loss_count == 1:
                     status = "last_chance"
                 elif loss_count >= 2:
                     status = "eliminated"
                     eliminated_week = week
-                    break  # No procesar más picks después de eliminación
+                    break  # No procesar m├ís picks despu├®s de eliminaci├│n
             elif result in ['T', 'draw']:
                 # Empate no afecta racha pero tampoco la resetea
                 pass
-            # Si result es None o 'pending', no afecta las estadísticas
+            # Si result es None o 'pending', no afecta las estad├¡sticas
         
-        # Current streak es la racha actual (solo si la última decisión fue victoria)
+        # Current streak es la racha actual (solo si la ├║ltima decisi├│n fue victoria)
         current_streak = 0
         if picks:
             # Contar victorias consecutivas desde el final
@@ -644,11 +995,11 @@ def update_entry_statistics(supabase, season_id):
     
     return entries_updated
 
-# --- Actualización automática de picks según marcadores ---
+# --- Actualizaci├│n autom├ítica de picks seg├║n marcadores ---
 @app.post("/auto-update-picks")
 async def auto_update_picks():
     """
-    Actualiza automáticamente el campo result y los puntos de los picks pendientes según el marcador del partido, y actualiza las entradas.
+    Actualiza autom├íticamente el campo result y los puntos de los picks pendientes seg├║n el marcador del partido, y actualiza las entradas.
     """
     try:
         # Obtener temporada y semana actual
@@ -668,8 +1019,8 @@ async def auto_update_picks():
             team_id = pick['selected_team_id']
             entry_id = pick['entry_id']
             week = pick['week']
-            # Obtener el partido con la hora del partido y status
-            match_query = supabase.table("matches").select("home_team_id, away_team_id, home_score, away_score, game_date, status").eq("id", match_id).execute()
+            # Obtener el partido con la hora del partido
+            match_query = supabase.table("matches").select("home_team_id, away_team_id, home_score, away_score, game_date").eq("id", match_id).execute()
             if not match_query.data:
                 continue
             match = match_query.data[0]
@@ -678,23 +1029,22 @@ async def auto_update_picks():
             home_score = match['home_score']
             away_score = match['away_score']
             game_date = match.get('game_date')
-            match_status = match.get('status')
             
-            # Solo procesar partidos completados con marcador definido
-            if match_status != 'completed' or home_score is None or away_score is None:
+            # Solo si hay marcador
+            if home_score is None or away_score is None:
                 continue
 
-            # Calcular el multiplicador basado en las horas de anticipación
+            # Calcular el multiplicador basado en las horas de anticipaci├│n
             multiplier = 0
             if game_date and pick.get('created_at'):
-                # Convertir las fechas a UTC para comparación
+                # Convertir las fechas a UTC para comparaci├│n
                 try:
                     if isinstance(game_date, str):
                         # Intentar primero formato ISO con 'T'
                         try:
                             match_time = datetime.strptime(game_date, "%Y-%m-%dT%H:%M:%S")
                         except ValueError:
-                            # Si falla, intentar formato estándar
+                            # Si falla, intentar formato est├índar
                             match_time = datetime.strptime(game_date, "%Y-%m-%d %H:%M:%S")
                     else:
                         match_time = game_date
@@ -710,7 +1060,7 @@ async def auto_update_picks():
                                 # Formato ISO sin microsegundos
                                 pick_time = datetime.strptime(pick['created_at'], "%Y-%m-%dT%H:%M:%S")
                             except ValueError:
-                                # Formato estándar
+                                # Formato est├índar
                                 pick_time = datetime.strptime(pick['created_at'], "%Y-%m-%d %H:%M:%S")
                     else:
                         pick_time = pick['created_at']
@@ -720,7 +1070,7 @@ async def auto_update_picks():
                     time_diff = match_time - pick_time
                     hours_diff = time_diff.total_seconds() / 3600
                     
-                    # Log para depuración
+                    # Log para depuraci├│n
                     logger.info(f"Pick ID {pick['id']}: Pick time={pick_time}, Match time={match_time}, Hours diff={hours_diff:.2f}")
                     
                     # Solo considerar picks hechos antes del partido
@@ -751,8 +1101,8 @@ async def auto_update_picks():
                 points_earned = int(1.0 * multiplier)
             elif result == 'T':
                 points_earned = int(0.5 * multiplier)
-            else:  # result == 'L'
-                points_earned = -300  # Penalización por pick perdido
+            else:
+                points_earned = 0
 
             # Actualizar pick con resultado y puntos
             supabase.table("picks").update({
@@ -760,117 +1110,24 @@ async def auto_update_picks():
                 "points_earned": points_earned
             }).eq("id", pick['id']).execute()
             
-            logger.info(f"Pick ID {pick['id']}: Resultado={result}, Horas de anticipación={multiplier}, " \
+            logger.info(f"Pick ID {pick['id']}: Resultado={result}, Horas de anticipaci├│n={multiplier}, " \
                       f"Puntos ganados={points_earned}, Semana={week}")
                       
             updated_count += 1
-
-        # ===== ASIGNACIÓN AUTOMÁTICA DE PICKS =====
-        # Buscar entradas que no tienen pick para la semana actual
-        auto_assigned_count = 0
-        
-        # Obtener todas las entradas activas de la temporada
-        entries_query = supabase.table("entries").select("id, user_id, entry_name").eq("season_id", season_id).eq("is_active", True).execute()
-        entries = entries_query.data if entries_query.data else []
-        
-        for entry in entries:
-            entry_id = entry['id']
-            
-            # Verificar si ya tiene pick para la semana actual
-            existing_pick_query = supabase.table("picks").select("id").eq("entry_id", entry_id).eq("week", week_num).eq("season_id", season_id).execute()
-            
-            if existing_pick_query.data:
-                continue  # Ya tiene pick para esta semana
-            
-            # Buscar el último partido de la semana actual
-            last_match_query = supabase.table("matches").select("*").eq("season_id", season_id).eq("week", week_num).order("game_date", desc=True).limit(1).execute()
-            
-            if not last_match_query.data:
-                continue  # No hay partidos esta semana
-                
-            last_match = last_match_query.data[0]
-            
-            # Verificar si el último partido ya empezó
-            game_date = last_match.get('game_date')
-            if game_date:
-                try:
-                    if isinstance(game_date, str):
-                        if 'T' in game_date:
-                            match_time = datetime.strptime(game_date, "%Y-%m-%dT%H:%M:%S")
-                        else:
-                            match_time = datetime.strptime(game_date, "%Y-%m-%d %H:%M:%S")
-                    else:
-                        match_time = game_date
-                    match_time = pytz.utc.localize(match_time) if match_time.tzinfo is None else match_time
-                    
-                    # Si el último partido no ha empezado, no asignar aún
-                    if datetime.now(pytz.utc) < match_time:
-                        continue
-                except Exception as e:
-                    logger.error(f"Error parseando fecha del último partido: {e}")
-                    continue
-            
-            # Obtener equipos que ya usó esta entrada
-            used_teams_query = supabase.table("picks").select("selected_team_id").eq("entry_id", entry_id).eq("season_id", season_id).execute()
-            used_team_ids = [pick['selected_team_id'] for pick in used_teams_query.data] if used_teams_query.data else []
-            
-            # Opción 1: Asignar equipo visitante del último partido si es elegible
-            away_team_id = last_match['away_team_id']
-            selected_team_id = None
-            
-            if away_team_id not in used_team_ids:
-                selected_team_id = away_team_id
-                logger.info(f"Asignando automáticamente equipo visitante {away_team_id} a entrada {entry_id}")
-            else:
-                # Opción 2: Buscar un equipo perdedor de la semana que sea elegible
-                losing_teams_query = supabase.table("matches").select("home_team_id, away_team_id, home_score, away_score").eq("season_id", season_id).eq("week", week_num).execute()
-                
-                eligible_losing_teams = []
-                for match in losing_teams_query.data:
-                    if match['home_score'] is not None and match['away_score'] is not None:
-                        if match['home_score'] < match['away_score']:  # Home perdió
-                            if match['home_team_id'] not in used_team_ids:
-                                eligible_losing_teams.append(match['home_team_id'])
-                        elif match['home_score'] > match['away_score']:  # Away perdió
-                            if match['away_team_id'] not in used_team_ids:
-                                eligible_losing_teams.append(match['away_team_id'])
-                
-                if eligible_losing_teams:
-                    import random
-                    selected_team_id = random.choice(eligible_losing_teams)
-                    logger.info(f"Asignando automáticamente equipo perdedor {selected_team_id} a entrada {entry_id}")
-                else:
-                    logger.warning(f"No hay equipos elegibles para asignación automática a entrada {entry_id}")
-                    continue
-            
-            if selected_team_id:
-                # Crear pick automático
-                now_str = datetime.now(pytz.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")
-                pick_data = {
-                    "entry_id": entry_id,
-                    "season_id": season_id,
-                    "week": week_num,
-                    "match_id": last_match['id'],
-                    "selected_team_id": selected_team_id,
-                    "result": "L",  # Automáticamente pérdida
-                    "points_earned": -300,  # Penalización por no hacer pick
-                    "created_at": now_str,
-                    "updated_at": now_str
-                }
-                
-                supabase.table("picks").insert(pick_data).execute()
-                auto_assigned_count += 1
-                logger.info(f"Pick automático creado para entrada {entry_id}: equipo {selected_team_id}, resultado L, -300 puntos")
-        
-        # Actualizar estadísticas de entradas
+        # Actualizar estad├¡sticas de entradas
         entries_updated = update_entry_statistics(supabase, season_id)
         return {
             "status": "success", 
-            "picks_updated": updated_count,
-            "auto_assigned_picks": auto_assigned_count, 
+            "picks_updated": updated_count, 
             "entries_updated": entries_updated,
-            "detail": f"Picks actualizados: {updated_count}, Picks auto-asignados: {auto_assigned_count}"
+            "detail": "Picks y entradas actualizados automáticamente"
         }
     except Exception as e:
         logger.error(f"Error en auto_update_picks: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8001)
+
+

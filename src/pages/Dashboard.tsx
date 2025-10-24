@@ -332,6 +332,25 @@ export default function DashboardPage() {
 
             <Card sx={{ flex: 1 }}>
               <CardContent sx={{ textAlign: 'center' }}>
+                <Typography 
+                  variant="h4" 
+                  color={
+                    (dashboardData?.total_points || 0) >= 0 
+                      ? "success.main" 
+                      : "error.main"
+                  }
+                  fontWeight="bold"
+                >
+                  {dashboardData?.total_points || 0}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Puntos
+                </Typography>
+              </CardContent>
+            </Card>
+
+            <Card sx={{ flex: 1 }}>
+              <CardContent sx={{ textAlign: 'center' }}>
                 <Typography variant="h4" color="text.primary" fontWeight="bold">
                   #{dashboardData?.posicion_ranking || '-'}
                 </Typography>
@@ -430,6 +449,7 @@ export default function DashboardPage() {
                       <TableCell><strong>Semana</strong></TableCell>
                       <TableCell><strong>Pick</strong></TableCell>
                       <TableCell><strong>Resultado</strong></TableCell>
+                      <TableCell><strong>Puntos</strong></TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -465,6 +485,19 @@ export default function DashboardPage() {
                         </TableCell>
                         <TableCell>
                           {getResultChip(pick.result)}
+                        </TableCell>
+                        <TableCell>
+                          <Typography 
+                            variant="body2" 
+                            color={
+                              (pick.points_earned || 0) >= 0 
+                                ? "success.main" 
+                                : "error.main"
+                            }
+                            fontWeight="bold"
+                          >
+                            {pick.points_earned ? (pick.points_earned > 0 ? `+${pick.points_earned}` : pick.points_earned) : '0'}
+                          </Typography>
                         </TableCell>
                       </TableRow>
                     ))}

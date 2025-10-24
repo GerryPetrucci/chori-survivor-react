@@ -210,6 +210,35 @@ export type Database = {
           points_earned?: number;
         };
       };
+      user_activities: {
+        Row: {
+          id: number;
+          user_id: string;
+          activity_type: string;
+          title: string;
+          description: string;
+          metadata: any | null;
+          is_read: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          activity_type: string;
+          title: string;
+          description: string;
+          metadata?: any | null;
+          is_read?: boolean;
+        };
+        Update: {
+          user_id?: string;
+          activity_type?: string;
+          title?: string;
+          description?: string;
+          metadata?: any | null;
+          is_read?: boolean;
+        };
+      };
     };
     Functions: {
       get_season_ranking: {

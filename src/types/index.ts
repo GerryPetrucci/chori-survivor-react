@@ -135,6 +135,7 @@ export interface DashboardData {
   derrotas: number;
   posicion_ranking: number;
   semana_actual: number;
+  total_points?: number;
   status?: 'alive' | 'last_chance' | 'eliminated';
   
   // Recent activity

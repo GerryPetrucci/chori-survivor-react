@@ -27,6 +27,7 @@ import {
 import { matchesService, picksService, seasonsService } from '../../services/supabase';
 import PickSuccessModal from './PickSuccessModal';
 import ConfirmPickChangeModal from './ConfirmPickChangeModal';
+import OddsTooltip from './OddsTooltip';
 
 interface PicksModalProps {
   open: boolean;
@@ -443,9 +444,9 @@ export default function PicksModal({ open, onClose, entryId, entryName }: PicksM
 
           <Box sx={{ maxHeight: '60vh', overflowY: 'auto' }}>
             {matches.map((match) => (
-              <Card key={match.id} sx={{ mb: 2, border: selectedMatch === match.id ? 2 : 1, borderColor: selectedMatch === match.id ? 'primary.main' : 'divider' }}>
-                <CardContent sx={{ py: 2 }}>
-                  <Box display="flex" alignItems="center" justifyContent="center" gap={3}>
+                <Card key={match.id} sx={{ mb: 2, border: selectedMatch === match.id ? 2 : 1, borderColor: selectedMatch === match.id ? 'primary.main' : 'divider', cursor: 'pointer' }}>
+                  <CardContent sx={{ py: 2 }}>
+                    <Box display="flex" alignItems="center" justifyContent="center" gap={3}>
                     {/* Away Team */}
                     <Box display="flex" alignItems="center" gap={1}>
                       <FormControlLabel
@@ -519,12 +520,17 @@ export default function PicksModal({ open, onClose, entryId, entryName }: PicksM
                       )}
                     </Box>
 
-                    {/* Game Time */}
+                    {/* Game Time and Odds Button */}
                     <Box display="flex" alignItems="center" gap={1} sx={{ minWidth: 130 }}>
                       <ScheduleIcon fontSize="small" color="action" />
                       <Typography variant="body2" color="text.secondary">
                         {formatGameTime(match.game_date)}
                       </Typography>
+                      <OddsTooltip
+                        matchId={match.id}
+                        homeTeam={match.home_team!}
+                        awayTeam={match.away_team!}
+                      />
                     </Box>
                   </Box>
 

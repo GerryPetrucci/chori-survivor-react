@@ -28,6 +28,7 @@ import {
   History as HistoryIcon,
   AdminPanelSettings as AdminIcon,
   Logout as LogoutIcon,
+  TrendingUp as TrendingIcon,
 } from '@mui/icons-material';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -39,6 +40,7 @@ const menuItems = [
   { text: 'Dashboard', path: '/dashboard', icon: <DashboardIcon /> },
   { text: 'Hacer Picks', path: '/picks', icon: <SportsIcon /> },
   { text: 'Partidos', path: '/matches', icon: <CalendarIcon /> },
+  { text: 'Tendencias', path: '/trends', icon: <TrendingIcon /> },
   { text: 'Ranking', path: '/ranking', icon: <LeaderboardIcon /> },
   { text: 'Perfil', path: '/profile', icon: <PersonIcon /> },
   { text: 'Reglas', path: '/rules', icon: <RulesIcon /> },
@@ -103,8 +105,8 @@ export default function Layout() {
           src="/assets/logos/diablo_survivor.png"
           alt="Diablo Survivor Logo"
           sx={{
-            height: 56,
-            width: 56,
+            height: "50%",
+            width: "50%",
             mb: 1.5,
             borderRadius: 2,
             boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
@@ -279,7 +281,7 @@ export default function Layout() {
           </IconButton>
           
           <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
-            <Box
+            {/* <Box
               component="img"
               src="/assets/logos/diablo_survivor.png"
               alt="Diablo Survivor Logo"
@@ -295,7 +297,7 @@ export default function Layout() {
                   transform: 'rotate(5deg) scale(1.1)'
                 }
               }}
-            />
+            /> */}
             <Typography 
               variant="h6" 
               noWrap 
