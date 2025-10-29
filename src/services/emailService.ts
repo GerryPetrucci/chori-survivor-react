@@ -5,7 +5,6 @@ const EMAILJS_SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID;
 const EMAILJS_TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
 
 const EMAILJS_PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
-const DEV_EMAIL = import.meta.env.VITE_DEV_EMAIL || 'gerry_petrucci_developer@outlook.com';
 const SENDER_EMAIL = import.meta.env.VITE_SENDER_EMAIL || 'tokens@chori-survivor.com';
 const SENDER_NAME = import.meta.env.VITE_SENDER_NAME || 'Chori Survivor - Sistema de Tokens';
 
@@ -41,12 +40,12 @@ export const emailService = {
               <table width="600" cellpadding="0" cellspacing="0" style="background:#fff; border-radius:10px; box-shadow:0 0 20px rgba(0,0,0,0.08); margin:20px auto;">
                 <!-- Header con logo -->
                 <tr>
-                  <td align="center" style="padding:30px 20px 10px 20px; background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-top-left-radius:10px; border-top-right-radius:10px;">
+                  <td align="center" style="padding:30px 20px 10px 20px; background-color:#667eea; border-top-left-radius:10px; border-top-right-radius:10px;">
                     <img src="https://i.imgur.com/CkMST9l.png" alt="Chori Survivor" width="120" style="display:block; margin:auto;">
                   </td>
                 </tr>
                 <tr>
-                  <td align="center" style="padding:0 20px 20px 20px; background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:#fff;">
+                  <td align="center" style="padding:0 20px 20px 20px; background-color:#667eea; color:#fff;">
                     <h2 style="margin:0; font-size:24px; font-weight:bold;">NFL Survivor Pool - Token de Activación</h2>
                   </td>
                 </tr>
@@ -56,7 +55,7 @@ export const emailService = {
                     <h3 style="margin-top:0;">¡Bienvenido al Pool de Supervivencia NFL! 🎉</h3>
                     <p>Hemos generado un token especial para que puedas unirte a nuestro emocionante pool de supervivencia de la NFL.</p>
                     <!-- Token Box -->
-                    <table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius:10px; margin:25px 0;">
+                    <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#667eea; border-radius:10px; margin:25px 0;">
                       <tr>
                         <td align="center" style="padding:20px; color:#fff;">
                           <h3 style="margin:0 0 10px 0; color:#fff;">🔑 Tu Token de Activación</h3>
@@ -80,7 +79,7 @@ export const emailService = {
                     <table width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0;">
                       <tr>
                         <td align="center">
-                          <a href="https://chori-survivor-react.vercel.app/activate-token" style="display:inline-block; background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:#fff; padding:15px 30px; text-decoration:none; border-radius:8px; font-weight:bold; font-size:16px; border:none;">🚀 Activar Token Ahora</a>
+                          <a href="https://chori-survivor-react.vercel.app/activate-token" style="display:inline-block; background-color:#667eea; color:#fff; padding:15px 30px; text-decoration:none; border-radius:8px; font-weight:bold; font-size:16px; border:none;">🚀 Activar Token Ahora</a>
                         </td>
                       </tr>
                     </table>
@@ -168,8 +167,7 @@ export const emailService = {
   // Método de prueba (sin EmailJS configurado)
   sendTokenEmailMock: async (data: TokenEmailData): Promise<{ success: boolean; error?: string }> => {
     console.log('📧 ENVIANDO EMAIL CON DEBUGGING:');
-    console.log('📧 Original recipient:', data.recipientEmail);
-    console.log('📧 Actual recipient (DEV):', DEV_EMAIL);
+    console.log('📧 Recipient email:', data.recipientEmail);
     console.log('🔑 Token:', data.token);
     console.log('🎯 Entries:', data.entriesCount);
     console.log('⏰ Expires:', data.expiryDate);
@@ -313,6 +311,6 @@ https://chori-survivor-react.vercel.app/activate-token
 };
 
 // Inicializar EmailJS al cargar el módulo
-// emailService.init(); // Descomentar cuando tengas las credenciales
+emailService.init();
 
 export default emailService;
