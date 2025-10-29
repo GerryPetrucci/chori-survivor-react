@@ -239,6 +239,37 @@ export type Database = {
           is_read?: boolean;
         };
       };
+      tokens: {
+        Row: {
+          id: number;
+          token: string;
+          id_compra: string | null;
+          entries_count: number;
+          created_at: string;
+          expires_at: string | null;
+          used_by_user_id: string | null;
+          used_at: string | null;
+          used_flag: boolean;
+        };
+        Insert: {
+          token: string;
+          id_compra?: string | null;
+          entries_count: number;
+          expires_at?: string | null;
+          used_by_user_id?: string | null;
+          used_at?: string | null;
+          used_flag?: boolean;
+        };
+        Update: {
+          token?: string;
+          id_compra?: string | null;
+          entries_count?: number;
+          expires_at?: string | null;
+          used_by_user_id?: string | null;
+          used_at?: string | null;
+          used_flag?: boolean;
+        };
+      };
     };
     Functions: {
       get_season_ranking: {
@@ -272,6 +303,27 @@ export type Database = {
             partido: string;
           }[];
         };
+      };
+      create_user_profile: {
+        Args: {
+          user_id: string;
+          user_username: string;
+          user_full_name: string;
+          user_email: string;
+        };
+        Returns: void;
+      };
+      validate_token_rpc: {
+        Args: { p_token: string };
+        Returns: {
+          id: number;
+          token: string;
+          id_compra: string | null;
+          entries_count: number;
+          email: string;
+          expires_at: string | null;
+          used_flag: boolean;
+        } | null;
       };
     };
   };
