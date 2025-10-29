@@ -6,6 +6,41 @@ type Tables = Database['public']['Tables'];
 type UserProfile = Tables['user_profiles']['Row'];
 
 // =====================================================
+// UTILIDADES - RETRY CON EXPONENTIAL BACKOFF
+// =====================================================
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  initialDelay: number = 1000
+): Promise<T> {
+  let lastError: any;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      lastError = error;
+      
+      // Si es un error 429 (rate limit) y aún hay reintentos
+      if (error?.status === 429 && attempt < maxRetries) {
+        const delay = initialDelay * Math.pow(2, attempt); // Exponential backoff: 1s, 2s, 4s
+        console.log(`⏳ Rate limit (429) alcanzado. Reintentando en ${delay}ms... (intento ${attempt + 1}/${maxRetries})`);
+        await sleep(delay);
+        continue;
+      }
+      
+      // Para cualquier otro error o si se acabaron los reintentos
+      throw error;
+    }
+  }
+  
+  throw lastError;
+}
+
+// =====================================================
 // AUTENTICACIÓN
 // =====================================================
 
@@ -30,17 +65,22 @@ export const authService = {
         console.log('🔄 Email procesado:', processedEmail);
       }
       
-      const { data, error } = await supabase.auth.signUp({
-        email: processedEmail,
-        password,
-        options: {
-          data: {
-            username,
-            full_name: fullName,
-            original_email: originalEmail, // Guardar el email original
+      // Intentar crear usuario con retry automático en caso de rate limiting (429)
+      const signUpResult = await retryWithBackoff(async () => {
+        return await supabase.auth.signUp({
+          email: processedEmail,
+          password,
+          options: {
+            data: {
+              username,
+              full_name: fullName,
+              original_email: originalEmail, // Guardar el email original
+            }
           }
-        }
-      });
+        });
+      }, 3, 2000); // 3 reintentos, comenzando con 2 segundos
+      
+      const { data, error } = signUpResult;
 
       console.log('🔄 Supabase signUp response:', { data, error });
 
