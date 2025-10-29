@@ -117,18 +117,32 @@ const ActivateToken: React.FC = () => {
         return;
       }
 
-      setSuccess('¡Usuario creado exitosamente! Redirigiendo al login...');
-      setTimeout(() => {
-        navigate('/login');
-      }, 2000);
+      // Hacer login automático si el email no requiere confirmación
+      // o si ya fue confirmado automáticamente
+      if (authData.session || authData.user.email_confirmed_at) {
+        setSuccess('¡Usuario creado exitosamente! Redirigiendo al dashboard...');
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 1500);
+      } else {
+        // Si requiere confirmación de email
+        setSuccess(
+          '¡Usuario creado exitosamente! Por favor confirma tu email antes de continuar. ' +
+          'Revisa tu bandeja de entrada y haz clic en el link de confirmación.'
+        );
+        setTimeout(() => {
+          navigate('/login');
+        }, 5000);
+      }
     } catch (err: any) {
       console.error('❌ Error en activación de token:', err);
       
       // Manejar específicamente el error 429 (Rate Limiting)
-      if (err?.status === 429 || err?.message?.includes('429')) {
+      if (err?.status === 429 || err?.message?.includes('429') || err?.message?.includes('rate limit')) {
         setError(
-          '⏳ Demasiados registros recientes. Por favor intenta nuevamente en 5-10 minutos. ' +
-          'Si el problema persiste, contacta al administrador.'
+          '⏳ Límite de registro temporal alcanzado. ' +
+          'Por favor contacta al administrador para que active tu cuenta manualmente, ' +
+          'o intenta nuevamente en 1-2 horas.'
         );
       } else {
         setError(err.message || 'Error al crear usuario');

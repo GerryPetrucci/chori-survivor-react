@@ -86,75 +86,14 @@ export const authService = {
 
       if (error) throw error;
       
-      // Crear perfil de usuario si el registro fue exitoso
+      // El perfil se crea automáticamente via trigger handle_new_user
       if (data.user) {
-        console.log('👤 Usuario creado en Auth:', {
+        console.log('✅ Usuario creado en Auth:', {
           id: data.user.id,
           email: data.user.email,
           confirmed_at: data.user.email_confirmed_at
         });
-        // Usar el cliente admin/service role para bypasear RLS
-        const { error: profileError } = await supabase
-          .from('user_profiles')
-          .insert({
-            id: data.user.id,
-            username,
-            full_name: fullName || username,
-            email: data.user.email || originalEmail, // Usar el email confirmado de Supabase
-            user_type: 'user'
-          });
-
-        if (profileError) {
-          console.error('❌ Error creating profile:', profileError);
-          console.error('❌ Profile error details:', JSON.stringify(profileError, null, 2));
-          
-          // Si es un problema de RLS, crear perfil usando approach diferente
-          if (profileError.message?.includes('row-level security')) {
-            console.log('🔄 RLS bloqueó la creación del perfil. Usando función de base de datos...');
-            
-            try {
-              // Intentar usar una función de base de datos que bypasee RLS
-              console.log('🔧 Creando perfil usando función create_user_profile...');
-              
-              const { error: functionError } = await supabase
-                .rpc('create_user_profile', {
-                  user_id: data.user.id,
-                  user_username: username,
-                  user_full_name: fullName || username,
-                  user_email: data.user.email || originalEmail
-                });
-              
-              if (functionError) {
-                console.error('❌ Error usando función RPC:', functionError);
-                // Si tampoco funciona la función, continuar sin perfil por ahora
-                console.log('⚠️ Continuando sin perfil. Se creará al confirmar email.');
-                return { 
-                  data, 
-                  error: null,
-                  needsEmailConfirmation: true 
-                };
-              } else {
-                console.log('✅ Perfil creado usando función RPC');
-                return { data, error: null };
-              }
-              
-            } catch (retryError: any) {
-              console.error('❌ Error en el proceso de retry:', retryError);
-              // Como último recurso, continuar sin perfil
-              console.log('⚠️ Continuando sin perfil. Se creará al confirmar email.');
-              return { 
-                data, 
-                error: null,
-                needsEmailConfirmation: true 
-              };
-            }
-          } else {
-            // Para otros errores, fallar directamente
-            return { data: null, error: 'Error al crear perfil de usuario: ' + profileError.message };
-          }
-        } else {
-          console.log('✅ Perfil de usuario creado exitosamente');
-        }
+        console.log('ℹ️ El perfil se creará automáticamente via trigger de base de datos');
       }
 
       return { data, error: null };
