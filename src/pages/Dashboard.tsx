@@ -49,7 +49,6 @@ export default function DashboardPage() {
   const navigate = useNavigate();
 
   const getResultChip = (result: string | null | undefined) => {
-    console.log('Resultado recibido:', result); // Debug para inspeccionar valores
     switch (result) {
       case 'W':
         return <Chip label="Victoria" color="success" size="small" />;
@@ -58,7 +57,7 @@ export default function DashboardPage() {
       case 'pending':
         return <Chip label="Pendiente" color="default" size="small" />;
       default:
-        return <Chip label={result || "N/A"} color="default" size="small" />; // Mostrar el valor si existe
+        return <Chip label={result || "N/A"} color="default" size="small" />;
     }
   };
 
@@ -147,20 +146,14 @@ export default function DashboardPage() {
         
         if (user?.id) {
           // Verificar entradas pendientes primero
-          console.log('🔍 Verificando entradas pendientes para usuario:', user.id);
           const result = await tokensService.getUserPendingEntries(user.id);
-          console.log('📊 Resultado getUserPendingEntries:', result);
           
           const { pendingCount } = result;
           setPendingEntriesCount(pendingCount);
-          console.log('📈 pendingCount establecido:', pendingCount);
           
           // Si hay entradas pendientes, mostrar el modal
           if (pendingCount > 0) {
-            console.log('🎯 Abriendo modal de entradas (pendingCount > 0)');
             setShowEntriesModal(true);
-          } else {
-            console.log('✅ No hay entradas pendientes, modal no se abre');
           }
 
           // Obtener entradas del usuario
@@ -286,7 +279,7 @@ export default function DashboardPage() {
               Estadísticas
             </Typography>
             
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ flexWrap: 'wrap' }}>
               {(() => {
                 const currentEntry = userEntries.find(entry => entry.id === selectedEntry);
                 const entryStatus = currentEntry?.status;
@@ -446,22 +439,22 @@ export default function DashboardPage() {
                 <Table stickyHeader size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell><strong>Semana</strong></TableCell>
+                      <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}><strong>Semana</strong></TableCell>
                       <TableCell><strong>Pick</strong></TableCell>
                       <TableCell><strong>Resultado</strong></TableCell>
-                      <TableCell><strong>Puntos</strong></TableCell>
+                      <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}><strong>Puntos</strong></TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {recentPicks.map((pick) => (
                       <TableRow key={pick.id} hover>
-                        <TableCell>{pick.week}</TableCell>
+                        <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{pick.week}</TableCell>
                         <TableCell>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1 } }}>
                               <img
                                 style={{
-                                  width: '50px',
-                                  height: '50px',
+                                  width: window.innerWidth < 600 ? '30px' : '50px',
+                                  height: window.innerWidth < 600 ? '30px' : '50px',
                                   objectFit: 'contain',
                                   verticalAlign: 'middle',
                                   margin: '0 6px',
@@ -478,15 +471,20 @@ export default function DashboardPage() {
                                   : '/assets/logos/nfl_logo.png'}
                                 alt={pick.selected_team?.name || 'Team'}
                               />
-                            <Typography variant="body2">
-                              {pick.selected_team?.city} {pick.selected_team?.name}
-                            </Typography>
+                            <Box>
+                              <Typography variant="body2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                                {pick.selected_team?.city} {pick.selected_team?.name}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'block', sm: 'none' } }}>
+                                S{pick.week} • {pick.points_earned ? (pick.points_earned > 0 ? `+${pick.points_earned}` : pick.points_earned) : '0'} pts
+                              </Typography>
+                            </Box>
                           </Box>
                         </TableCell>
                         <TableCell>
                           {getResultChip(pick.result)}
                         </TableCell>
-                        <TableCell>
+                        <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
                           <Typography 
                             variant="body2" 
                             color={

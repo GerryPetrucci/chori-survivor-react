@@ -41,17 +41,11 @@ export default function AppRouter() {
                                    window.location.hash.includes('refresh_token') ||
                                    window.location.search.includes('access_token');
               
-              console.log('🔍 AppRouter recovery check:', {
-                isAuthenticated,
-                isRecoveryMode,
-                url: window.location.href
-              });
-              
               return isAuthenticated && !isRecoveryMode ? 
                 <Navigate to="/dashboard" replace /> : 
                 <LoginPage />;
             })()
-          } 
+          }
         />
         <Route 
           path="/activate-token" 

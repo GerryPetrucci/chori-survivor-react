@@ -353,40 +353,40 @@ export default function MatchesPage() {
               <TableHead>
                 <TableRow>
                   <TableCell><strong>Equipos</strong></TableCell>
-                  <TableCell align="center"><strong>Fecha y Hora</strong></TableCell>
+                  <TableCell align="center" sx={{ display: { xs: 'none', md: 'table-cell' } }}><strong>Fecha y Hora</strong></TableCell>
                   <TableCell align="center"><strong>Resultado</strong></TableCell>
-                  <TableCell align="center"><strong>Estado</strong></TableCell>
-                  <TableCell align="center"><strong>Odds</strong></TableCell>
+                  <TableCell align="center" sx={{ display: { xs: 'none', sm: 'table-cell' } }}><strong>Estado</strong></TableCell>
+                  <TableCell align="center" sx={{ display: { xs: 'none', sm: 'table-cell' } }}><strong>Odds</strong></TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {matches.map((match) => (
                     <TableRow key={match.id} sx={{ '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.04)' } }}>
                       <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1.5 } }}>
                         {/* Away Team */}
                         <Box
                           component="img"
                           src={getTeamLogo(match.away_team?.name || '', match.away_team?.city || '')}
                           alt={`${match.away_team?.city} ${match.away_team?.name}`}
                           sx={{
-                            width: 28,
-                            height: 28,
+                            width: { xs: 20, sm: 28 },
+                            height: { xs: 20, sm: 28 },
                             objectFit: 'contain',
                             borderRadius: 1,
                             border: '1px solid rgba(0,0,0,0.1)'
                           }}
                         />
-                        <Typography variant="body2" fontWeight="bold" sx={{ minWidth: 35, textAlign: 'center' }}>
+                        <Typography variant="body2" fontWeight="bold" sx={{ minWidth: { xs: 28, sm: 35 }, textAlign: 'center', fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
                           {match.away_team?.abbreviation || 'TBD'}
                         </Typography>
                         
                         {/* @ Separator */}
-                        <Typography variant="body2" color="text.secondary" fontWeight="bold" sx={{ mx: 0.5 }}>
+                        <Typography variant="body2" color="text.secondary" fontWeight="bold" sx={{ mx: 0.5, display: { xs: 'none', sm: 'block' } }}>
                           @
                         </Typography>
                         
-                        <Typography variant="body2" fontWeight="bold" sx={{ minWidth: 35, textAlign: 'center' }}>
+                        <Typography variant="body2" fontWeight="bold" sx={{ minWidth: { xs: 28, sm: 35 }, textAlign: 'center', fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
                           {match.home_team?.abbreviation || 'TBD'}
                         </Typography>
                         {/* Home Team */}
@@ -395,8 +395,8 @@ export default function MatchesPage() {
                           src={getTeamLogo(match.home_team?.name || '', match.home_team?.city || '')}
                           alt={`${match.home_team?.city} ${match.home_team?.name}`}
                           sx={{
-                            width: 28,
-                            height: 28,
+                            width: { xs: 20, sm: 28 },
+                            height: { xs: 20, sm: 28 },
                             objectFit: 'contain',
                             borderRadius: 1,
                             border: '1px solid rgba(0,0,0,0.1)'
@@ -404,24 +404,29 @@ export default function MatchesPage() {
                         />
                       </Box>
                     </TableCell>
-                    <TableCell align="center">
-                      <Typography variant="body2">
+                    <TableCell align="center" sx={{ display: { xs: 'none', md: 'table-cell' } }}>
+                      <Typography variant="body2" sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
                         {formatDate(match.game_date)}
                       </Typography>
                     </TableCell>
                     <TableCell align="center">
-                      <Typography variant="h6" fontWeight="bold">
-                        {getScoreDisplay(match)}
-                      </Typography>
+                      <Box>
+                        <Typography variant="h6" fontWeight="bold" sx={{ fontSize: { xs: '0.875rem', sm: '1.25rem' } }}>
+                          {getScoreDisplay(match)}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'block', md: 'none' }, fontSize: '0.65rem' }}>
+                          {new Date(match.game_date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+                        </Typography>
+                      </Box>
                     </TableCell>
-                    <TableCell align="center">
+                    <TableCell align="center" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
                       <Chip 
                         label={getStatusText(match.status)}
                         color={getStatusColor(match.status) as any}
                         size="small"
                       />
                     </TableCell>
-                    <TableCell align="center">
+                    <TableCell align="center" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
                       <OddsTooltip
                         matchId={match.id}
                         homeTeam={match.home_team!}

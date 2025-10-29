@@ -405,7 +405,7 @@ export default function PicksModal({ open, onClose, entryId, entryName }: PicksM
           </Box>
         </DialogTitle>
 
-        <DialogContent>
+        <DialogContent sx={{ px: { xs: 1, sm: 2, md: 3 }, maxWidth: '100%', overflowX: 'hidden' }}>
           {error && (
             <Alert severity="error" sx={{ mb: 3 }}>
               {error}
@@ -442,11 +442,11 @@ export default function PicksModal({ open, onClose, entryId, entryName }: PicksM
             Partidos de la Semana {selectedWeek}
           </Typography>
 
-          <Box sx={{ maxHeight: '60vh', overflowY: 'auto' }}>
+          <Box sx={{ maxHeight: '60vh', overflowY: 'auto', overflowX: 'auto' }}>
             {matches.map((match) => (
-                <Card key={match.id} sx={{ mb: 2, border: selectedMatch === match.id ? 2 : 1, borderColor: selectedMatch === match.id ? 'primary.main' : 'divider', cursor: 'pointer' }}>
+                <Card key={match.id} sx={{ mb: 2, border: selectedMatch === match.id ? 2 : 1, borderColor: selectedMatch === match.id ? 'primary.main' : 'divider', cursor: 'pointer', minWidth: { xs: '600px', sm: 'auto' } }}>
                   <CardContent sx={{ py: 2 }}>
-                    <Box display="flex" alignItems="center" justifyContent="center" gap={3}>
+                    <Box display="flex" alignItems="center" justifyContent="center" gap={{ xs: 1, sm: 2, md: 3 }} flexWrap={{ xs: 'nowrap', md: 'wrap' }}>
                     {/* Away Team */}
                     <Box display="flex" alignItems="center" gap={1}>
                       <FormControlLabel
@@ -466,14 +466,14 @@ export default function PicksModal({ open, onClose, entryId, entryName }: PicksM
                         src={getTeamLogo(match.away_team?.logo_url)}
                         alt={match.away_team?.name}
                         style={{ 
-                          width: 35, 
-                          height: 35, 
+                          width: window.innerWidth < 600 ? 28 : 35, 
+                          height: window.innerWidth < 600 ? 28 : 35, 
                           objectFit: 'contain',
                           opacity: canSelectTeam(match.away_team_id, match) ? 1 : 0.4,
                           filter: canSelectTeam(match.away_team_id, match) ? 'none' : 'grayscale(100%)'
                         }}
                       />
-                      <Typography variant="body1" fontWeight="bold" sx={{ minWidth: 40, textAlign: 'center' }}>
+                      <Typography variant="body2" fontWeight="bold" sx={{ minWidth: { xs: 32, sm: 40 }, textAlign: 'center', fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
                         {match.away_team?.abbreviation}
                       </Typography>
                       {usedTeams.includes(match.away_team_id) && (
@@ -488,15 +488,15 @@ export default function PicksModal({ open, onClose, entryId, entryName }: PicksM
 
                     {/* Home Team */}
                     <Box display="flex" alignItems="center" gap={1}>
-                      <Typography variant="body1" fontWeight="bold" sx={{ minWidth: 40, textAlign: 'center' }}>
+                      <Typography variant="body2" fontWeight="bold" sx={{ minWidth: { xs: 32, sm: 40 }, textAlign: 'center', fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
                         {match.home_team?.abbreviation}
                       </Typography>
                       <img
                         src={getTeamLogo(match.home_team?.logo_url)}
                         alt={match.home_team?.name}
                         style={{ 
-                          width: 35, 
-                          height: 35, 
+                          width: window.innerWidth < 600 ? 28 : 35, 
+                          height: window.innerWidth < 600 ? 28 : 35, 
                           objectFit: 'contain',
                           opacity: canSelectTeam(match.home_team_id, match) ? 1 : 0.4,
                           filter: canSelectTeam(match.home_team_id, match) ? 'none' : 'grayscale(100%)'
@@ -521,11 +521,13 @@ export default function PicksModal({ open, onClose, entryId, entryName }: PicksM
                     </Box>
 
                     {/* Game Time and Odds Button */}
-                    <Box display="flex" alignItems="center" gap={1} sx={{ minWidth: 130 }}>
-                      <ScheduleIcon fontSize="small" color="action" />
-                      <Typography variant="body2" color="text.secondary">
-                        {formatGameTime(match.game_date)}
-                      </Typography>
+                    <Box display="flex" alignItems="center" gap={1} sx={{ minWidth: { xs: 100, sm: 130 }, flexDirection: { xs: 'column', sm: 'row' } }}>
+                      <Box display="flex" alignItems="center" gap={0.5}>
+                        <ScheduleIcon fontSize="small" color="action" sx={{ display: { xs: 'none', sm: 'block' } }} />
+                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', sm: '0.875rem' } }}>
+                          {formatGameTime(match.game_date)}
+                        </Typography>
+                      </Box>
                       <OddsTooltip
                         matchId={match.id}
                         homeTeam={match.home_team!}

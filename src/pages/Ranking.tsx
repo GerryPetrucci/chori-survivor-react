@@ -123,14 +123,11 @@ export default function RankingPage() {
         .eq('season_id', season.id)
         .order('total_wins', { ascending: false });
       
-      console.log('Raw entries from DB:', allEntries);
-      
       if (entriesError) {
         throw new Error('Error al obtener las entradas: ' + entriesError.message);
       }
 
       if (!allEntries || allEntries.length === 0) {
-        console.log('No entries found in database');
         setRankingData([]);
         setFilteredData([]);
         return;
@@ -174,15 +171,6 @@ export default function RankingPage() {
         if (entryPicks && !picksError) {
           realPoints = entryPicks.reduce((sum, pick) => sum + (pick.points_earned || 0), 0);
         }
-
-        // Debug: ver los valores reales
-        console.log('Entry debug:', {
-          id: entry.id,
-          entry_name: entry.entry_name,
-          status: entry.status,
-          total_wins: entry.total_wins,
-          real_points: realPoints
-        });
 
         rankingData.push({
           position: 0, // Se calculará después del sort
@@ -389,10 +377,10 @@ export default function RankingPage() {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell><strong>Posición</strong></TableCell>
+                <TableCell sx={{ width: { xs: '15%', sm: '10%' } }}><strong>Pos.</strong></TableCell>
                 <TableCell><strong>Entrada</strong></TableCell>
-                <TableCell align="center"><strong>Status</strong></TableCell>
-                <TableCell align="center"><strong>Puntos</strong></TableCell>
+                <TableCell align="center" sx={{ display: { xs: 'none', sm: 'table-cell' } }}><strong>Status</strong></TableCell>
+                <TableCell align="center"><strong>Pts</strong></TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -411,26 +399,32 @@ export default function RankingPage() {
                   }}
                 >
                   <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', fontSize: '1.2rem', fontWeight: 'bold' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 'bold' }}>
                       {getPositionDisplay(entry.position)}
                     </Box>
                   </TableCell>
                   <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 } }}>
+                      <Avatar sx={{ width: { xs: 24, sm: 32 }, height: { xs: 24, sm: 32 }, bgcolor: 'primary.main', fontSize: { xs: '0.75rem', sm: '1rem' } }}>
                         {entry.username.charAt(0).toUpperCase()}
                       </Avatar>
                       <Box>
-                        <Typography variant="body2" fontWeight="bold">
+                        <Typography variant="body2" fontWeight="bold" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
                           {entry.entry_name}
                         </Typography>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, display: { xs: 'none', sm: 'block' } }}>
                           {entry.username}
                         </Typography>
+                        <Chip 
+                          label={getStatusText(entry.status)}
+                          color={getStatusColor(entry.status) as any}
+                          size="small"
+                          sx={{ display: { xs: 'inline-flex', sm: 'none' }, height: 16, fontSize: '0.6rem', mt: 0.5 }}
+                        />
                       </Box>
                     </Box>
                   </TableCell>
-                  <TableCell align="center">
+                  <TableCell align="center" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
                     <Chip 
                       label={getStatusText(entry.status)}
                       color={getStatusColor(entry.status) as any}
@@ -438,7 +432,7 @@ export default function RankingPage() {
                     />
                   </TableCell>
                   <TableCell align="center">
-                    <Typography variant="body1" fontWeight="bold">
+                    <Typography variant="body1" fontWeight="bold" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
                       {entry.points}
                     </Typography>
                   </TableCell>

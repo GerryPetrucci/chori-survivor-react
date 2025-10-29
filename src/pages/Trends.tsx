@@ -16,7 +16,6 @@ import {
   TableRow,
   TableCell,
   LinearProgress,
-  Avatar,
   FormControl,
   InputLabel,
   Select,
@@ -73,17 +72,28 @@ function a11yProps(index: number) {
   };
 }
 
+// Define the color palette
+const colorPalette = ['#764ba2', '#667eea', '#d875e6'];
+
+// Function to assign random colors without repetition
+const getRandomColors = (count: number): string[] => {
+  const shuffled = [...colorPalette].sort(() => 0.5 - Math.random());
+  return shuffled.slice(0, count);
+};
+
+// Example usage: Assign colors to charts
+const chartColors = getRandomColors(3); // Adjust count based on the number of data series
 
 const Trends: React.FC = () => {
   const [trendsData, setTrendsData] = useState<TrendsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tabValue, setTabValue] = useState(0);
-  const [selectedWeek, setSelectedWeek] = useState<string>('7'); // '7' por defecto, 'all' para todas las semanas
+  const [selectedWeek, setSelectedWeek] = useState<string>('all');  // Inicia en 'all', luego se actualiza a la semana actual
   const [availableWeeks, setAvailableWeeks] = useState<number[]>([]);
 
   useEffect(() => {
-    loadTrendsData();
+    loadTrendsData('current'); // Cargar datos de la semana actual al inicio
   }, []);
 
   const loadTrendsData = async (week?: string) => {
@@ -93,8 +103,8 @@ const Trends: React.FC = () => {
       console.log('🔍 Cargando datos de tendencias para semana:', week || selectedWeek);
       
       const targetWeek = week || selectedWeek;
-      // Si es 'all', no pasar semana (undefined), si es número, convertir a número
-      const weekParam = targetWeek === 'all' ? undefined : parseInt(targetWeek);
+      // Si es 'all', no pasar semana (undefined), si es 'current', undefined para que use la semana actual, si es número, convertir a número
+      const weekParam = targetWeek === 'all' || targetWeek === 'current' ? undefined : parseInt(targetWeek);
       
       const result = await TrendsService.getAllTrendsData(weekParam);
       console.log('📊 Resultado de TrendsService:', result);
@@ -111,6 +121,13 @@ const Trends: React.FC = () => {
         // Actualizar semanas disponibles si están en los datos
         if (result.data.availableWeeks) {
           setAvailableWeeks(result.data.availableWeeks);
+        }
+        // Si era 'current', actualizar al número de semana real
+        if (targetWeek === 'current') {
+          const currentWeek = result.data.currentSeason?.current_week;
+          if (currentWeek) {
+            setSelectedWeek(currentWeek.toString());
+          }
         }
       } else {
         console.log('⚠️ No se recibieron datos');
@@ -147,6 +164,15 @@ const Trends: React.FC = () => {
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
+  };
+
+  // Función para obtener el logo del equipo basado en su abreviación o nombre
+  const getTeamLogo = (logoUrl?: string): string => {
+    if (logoUrl) {
+      return logoUrl.startsWith('/assets/') ? logoUrl : `/assets${logoUrl}`;
+    }
+
+    return '/assets/logos/nfl_logo.png'; // Fallback
   };
 
   if (loading) {
@@ -208,7 +234,14 @@ const Trends: React.FC = () => {
       </Box>
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-        <Tabs value={tabValue} onChange={handleTabChange} aria-label="trends tabs">
+        <Tabs 
+          value={tabValue} 
+          onChange={handleTabChange} 
+          aria-label="trends tabs"
+          variant="scrollable"
+          scrollButtons="auto"
+          allowScrollButtonsMobile
+        >
           <Tab label="Estadísticas de Equipos" {...a11yProps(0)} />
           <Tab label="Distribución de Picks" {...a11yProps(1)} />
           <Tab label="Tendencias Semanales" {...a11yProps(2)} />
@@ -228,37 +261,37 @@ const Trends: React.FC = () => {
                   <TableHead>
                     <TableRow>
                       <TableCell>Equipo</TableCell>
-                      <TableCell align="right">Picks</TableCell>
-                      <TableCell align="right">Récord (W-L-T)</TableCell>
-                      <TableCell align="right">Popularidad</TableCell>
-                      <TableCell align="right">Tasa de Éxito</TableCell>
+                      <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>Picks</TableCell>
+                      <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' } }}>Récord</TableCell>
+                      <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' } }}>Popularidad</TableCell>
+                      <TableCell align="right">Éxito</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {trendsData.teamStats.slice(0, 10).map((team) => (
                       <TableRow key={team.team_id}>
                         <TableCell>
-                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            {team.logo_url && (
-                              <Avatar
-                                src={team.logo_url}
-                                alt={team.team_name}
-                                sx={{ width: 24, height: 24, mr: 1 }}
-                              />
-                            )}
-                            {team.team_name}
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1 } }}>
+                            <img
+                              src={getTeamLogo(team.logo_url)} // Usar solo logo_url
+                              alt={team.team_name}
+                              style={{ width: 24, height: 24, borderRadius: '50%' }}
+                            />
+                            <Typography variant="body2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                              {team.team_name}
+                            </Typography>
                           </Box>
                         </TableCell>
-                        <TableCell align="right">{team.pick_count}</TableCell>
-                        <TableCell align="right">
+                        <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{team.pick_count}</TableCell>
+                        <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' } }}>
                           <Chip 
                             label={`${team.win_count}-${team.loss_count}-${team.tie_count}`}
                             size="small"
                             color={team.win_count > team.loss_count ? 'success' : team.win_count === team.loss_count ? 'warning' : 'error'}
                           />
                         </TableCell>
-                        <TableCell align="right">
-                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' } }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
                             <LinearProgress
                               variant="determinate"
                               value={(team.pick_count / Math.max(...trendsData.teamStats.map(t => t.pick_count))) * 100}
@@ -272,6 +305,7 @@ const Trends: React.FC = () => {
                             label={`${team.win_rate.toFixed(1)}%`}
                             color={team.win_rate >= 70 ? 'success' : team.win_rate >= 50 ? 'warning' : 'error'}
                             size="small"
+                            sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}
                           />
                         </TableCell>
                       </TableRow>
@@ -287,8 +321,8 @@ const Trends: React.FC = () => {
       <TabPanel value={tabValue} index={1}>
         <Box>
           <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <CardContent sx={{ px: { xs: 1, sm: 2, md: 3 } }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexDirection: { xs: 'column', sm: 'row' }, gap: { xs: 1, sm: 0 } }}>
                 <Typography variant="h6">
                   Distribución de Picks por Equipo
                 </Typography>
@@ -298,13 +332,35 @@ const Trends: React.FC = () => {
               </Box>
               {trendsData.pickDistribution && trendsData.pickDistribution.length > 0 ? (
                 <ResponsiveContainer width="100%" height={400}>
-                  <BarChart data={trendsData.pickDistribution}>
+                  <BarChart data={trendsData.pickDistribution.map(team => ({
+                    ...team,
+                    // Preferir el loss_count calculado en backend; si no existe, usar fallback solo cuando win_count esté definido
+                    loss_count: team.loss_count !== undefined ? team.loss_count : (team.win_count !== undefined ? team.pick_count - team.win_count : undefined)
+                  }))}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="team_abbreviation" />
                     <YAxis />
                     <Tooltip />
                     <Legend />
-                    <Bar dataKey="pick_count" fill="#8884d8" name="Total de Picks" />
+                    <Bar
+                      dataKey="pick_count"
+                      fill={chartColors[0]}
+                      name="Total de Picks"
+                    />
+                    {trendsData.pickDistribution.some(team => team.win_count !== undefined) && (
+                      <>
+                        <Bar
+                          dataKey="win_count"
+                          fill={chartColors[1]}
+                          name="Picks Correctos"
+                        />
+                        <Bar
+                          dataKey="loss_count"
+                          fill={chartColors[2]}
+                          name="Picks Incorrectos"
+                        />
+                      </>
+                    )}
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
@@ -334,15 +390,15 @@ const Trends: React.FC = () => {
                   <Area
                     type="monotone"
                     dataKey="pick_count"
-                    stroke="#8884d8"
-                    fill="#8884d8"
+                    stroke={chartColors[0]} // Usar el primer color aleatorio
+                    fill={chartColors[0]}
                     name="Total de Picks"
                   />
                   <Area
                     type="monotone"
                     dataKey="win_count"
-                    stroke="#82ca9d"
-                    fill="#82ca9d"
+                    stroke={chartColors[1]} // Usar el segundo color aleatorio
+                    fill={chartColors[1]}
                     name="Picks Correctos"
                   />
                 </AreaChart>
@@ -364,9 +420,9 @@ const Trends: React.FC = () => {
                   <TableHead>
                     <TableRow>
                       <TableCell>Equipo</TableCell>
-                      <TableCell align="right">Tasa de Éxito</TableCell>
-                      <TableCell align="right">Total Picks</TableCell>
-                      <TableCell align="right">Nivel de Riesgo</TableCell>
+                      <TableCell align="right">Éxito</TableCell>
+                      <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>Picks</TableCell>
+                      <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>Riesgo</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -376,20 +432,28 @@ const Trends: React.FC = () => {
                       .map((team) => {
                         const riskLevel = team.win_rate >= 70 ? 'low' : team.win_rate >= 50 ? 'medium' : 'high';
                         const riskColor = riskLevel === 'low' ? 'success' : riskLevel === 'medium' ? 'warning' : 'error';
-                        const riskIcon = riskLevel === 'low' ? <TrendingUpIcon /> : riskLevel === 'medium' ? <InsightsIcon /> : <WarningIcon />;
+                        const riskIcon = riskLevel === 'low' ? <TrendingUpIcon fontSize="small" /> : riskLevel === 'medium' ? <InsightsIcon fontSize="small" /> : <WarningIcon fontSize="small" />;
                         
                         return (
                           <TableRow key={team.team_id}>
                             <TableCell>
-                              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                {team.logo_url && (
-                                  <Avatar
-                                    src={team.logo_url}
-                                    alt={team.team_name}
-                                    sx={{ width: 24, height: 24, mr: 1 }}
-                                  />
-                                )}
-                                {team.team_name}
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1 } }}>
+                                <img
+                                  src={getTeamLogo(team.logo_url)} // Usar solo logo_url
+                                  alt={team.team_name}
+                                  style={{ width: 24, height: 24, borderRadius: '50%' }}
+                                />
+                                <Box>
+                                  <Typography variant="body2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                                    {team.team_name}
+                                  </Typography>
+                                  <Box sx={{ display: { xs: 'flex', sm: 'none' }, alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+                                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                                      {team.pick_count} picks
+                                    </Typography>
+                                    {riskIcon}
+                                  </Box>
+                                </Box>
                               </Box>
                             </TableCell>
                             <TableCell align="right">
@@ -397,10 +461,11 @@ const Trends: React.FC = () => {
                                 label={`${team.win_rate.toFixed(1)}%`}
                                 color={riskColor}
                                 size="small"
+                                sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}
                               />
                             </TableCell>
-                            <TableCell align="right">{team.pick_count}</TableCell>
-                            <TableCell align="right">
+                            <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{team.pick_count}</TableCell>
+                            <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
                               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
                                 {riskIcon}
                                 <Typography variant="body2" sx={{ ml: 1, textTransform: 'capitalize' }}>

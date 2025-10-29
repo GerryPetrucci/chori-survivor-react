@@ -34,6 +34,8 @@ export interface PickDistribution {
   team_name: string;
   team_abbreviation: string;
   pick_count: number;
+  win_count: number; // Agregado win_count
+  loss_count: number; // Agregado loss_count
   percentage: number;
   color: string;
   logo_url?: string;
@@ -341,6 +343,7 @@ export class TrendsService {
         .from('picks')
         .select(`
           selected_team_id,
+          result,
           entries!inner(season_id)
         `)
         .eq('entries.season_id', currentSeasonId);
@@ -367,28 +370,44 @@ export class TrendsService {
         return { distribution: [], error: teamsError };
       }
 
-      // Contar picks por equipo
-      const teamPickCount = new Map<number, number>();
+      // Contar picks, victorias y derrotas por equipo
+      const teamStats = new Map<number, { pickCount: number; winCount: number; lossCount: number }>();
       picks?.forEach(pick => {
         const teamId = pick.selected_team_id;
-        teamPickCount.set(teamId, (teamPickCount.get(teamId) || 0) + 1);
-      });
+        const result = pick.result; // Suponiendo que result puede ser 'W', 'L' o 'T'
 
-      const totalPicks = picks?.length || 0;
+        if (!teamStats.has(teamId)) {
+          teamStats.set(teamId, { pickCount: 0, winCount: 0, lossCount: 0 });
+        }
+
+        const stats = teamStats.get(teamId);
+        if (stats) {
+          stats.pickCount += 1;
+          if (result === 'W' || result === 'T') {
+            stats.winCount += 1;
+          } else if (result === 'L') {
+            stats.lossCount += 1;
+          } // Ignorar resultados "pending" u otros valores no definidos
+        }
+      });
 
       // Crear distribución
       const distribution: PickDistribution[] = [];
       let colorIndex = 0;
 
-      teamPickCount.forEach((count, teamId) => {
+      const totalPicks = picks?.length || 0; // Mover al inicio de la función para asegurar el alcance
+
+      teamStats.forEach((stats, teamId) => {
         const team = teams?.find(t => t.id === teamId);
         if (team) {
           distribution.push({
             team_id: teamId,
             team_name: team.name,
             team_abbreviation: team.abbreviation,
-            pick_count: count,
-            percentage: totalPicks > 0 ? (count / totalPicks) * 100 : 0,
+            pick_count: stats.pickCount,
+            win_count: stats.winCount, // Agregar win_count
+            loss_count: stats.lossCount, // Agregar loss_count
+            percentage: totalPicks > 0 ? (stats.pickCount / totalPicks) * 100 : 0,
             color: TrendsService.CHART_COLORS[colorIndex % TrendsService.CHART_COLORS.length],
             logo_url: team.logo_url || `/assets/logos/${team.abbreviation?.toLowerCase()}_logo.png`
           });
@@ -438,9 +457,13 @@ export class TrendsService {
         return { data: null, error: weeksError };
       }
 
-      // Usar la semana especificada, o 7 por defecto, o undefined para todas las semanas
-      const targetWeek = selectedWeek; // Puede ser undefined para "todas las semanas"
-      console.log('🎯 Semana objetivo:', targetWeek, 'selectedWeek:', selectedWeek, 'weeks available:', weeks, 'current_week:', season.current_week);
+      // Convertir 'current' al número de semana actual
+      let targetWeek = selectedWeek;
+      if (selectedWeek === undefined || (typeof selectedWeek === 'string' && selectedWeek === 'current')) {
+        targetWeek = undefined; // undefined = todas las semanas
+      }
+      
+      console.log('🎯 Semana objetivo:', targetWeek, 'selectedWeek original:', selectedWeek, 'weeks available:', weeks, 'current_week:', season.current_week);
 
       // Obtener todos los datos en paralelo
       console.log('📊 Obteniendo datos en paralelo...');

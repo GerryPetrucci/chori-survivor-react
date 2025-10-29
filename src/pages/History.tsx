@@ -248,17 +248,18 @@ export default function HistoryPage() {
                   <ListItemText
                     primary={activity.description}
                     secondary={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                      <>
                         <Chip
                           label={activity.activity_type?.replace('_', ' ') || 'Actividad'}
                           size="small"
                           color={getActivityColor(activity.activity_type) as any}
                           variant="outlined"
+                          sx={{ mr: 1, mt: 0.5 }}
                         />
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography component="span" variant="caption" color="text.secondary">
                           {formatDate(activity.created_at)} a las {formatTime(activity.created_at)}
                         </Typography>
-                      </Box>
+                      </>
                     }
                   />
                 </ListItem>
