@@ -7,18 +7,8 @@ import logging
 import requests
 import asyncio
 import os
-import pathlib
-from dotenv import load_dotenv
 from pydantic import BaseModel
 from math import floor
-
-# Cargar variables de entorno
-root_dir = pathlib.Path(__file__).parent.parent
-env_local_path = root_dir / '.env.local'
-env_path = root_dir / '.env'
-
-load_dotenv(env_path)
-load_dotenv(env_local_path)
 
 # Configuracion de logging
 logging.basicConfig(
@@ -1257,6 +1247,5 @@ async def update_weekly_odds_auto():
         logger.error(f"❌ AUTO ODDS UPDATE: Error - {e}")
         raise HTTPException(status_code=500, detail=f"Error en update-weekly-odds-auto: {str(e)}")
 
-# Handler para Vercel con Mangum
-from mangum import Mangum
-handler = Mangum(app)
+# Para Vercel, el objeto app es el handler
+# Vercel automáticamente detecta FastAPI y lo ejecuta
