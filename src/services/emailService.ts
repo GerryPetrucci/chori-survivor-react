@@ -41,12 +41,12 @@ export const emailService = {
               <table width="600" cellpadding="0" cellspacing="0" style="background:#fff; border-radius:10px; box-shadow:0 0 20px rgba(0,0,0,0.08); margin:20px auto;">
                 <!-- Header con logo -->
                 <tr>
-                  <td align="center" style="padding:30px 20px 10px 20px; background:#EF4444; border-top-left-radius:10px; border-top-right-radius:10px;">
+                  <td align="center" style="padding:30px 20px 10px 20px; background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-top-left-radius:10px; border-top-right-radius:10px;">
                     <img src="https://i.imgur.com/CkMST9l.png" alt="Chori Survivor" width="120" style="display:block; margin:auto;">
                   </td>
                 </tr>
                 <tr>
-                  <td align="center" style="padding:0 20px 20px 20px; background:#EF4444; color:#fff;">
+                  <td align="center" style="padding:0 20px 20px 20px; background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:#fff;">
                     <h2 style="margin:0; font-size:24px; font-weight:bold;">NFL Survivor Pool - Token de Activación</h2>
                   </td>
                 </tr>
@@ -56,22 +56,22 @@ export const emailService = {
                     <h3 style="margin-top:0;">¡Bienvenido al Pool de Supervivencia NFL! 🎉</h3>
                     <p>Hemos generado un token especial para que puedas unirte a nuestro emocionante pool de supervivencia de la NFL.</p>
                     <!-- Token Box -->
-                    <table width="100%" cellpadding="0" cellspacing="0" style="background:#FFB4A2; border:2px solid #EF4444; border-radius:10px; margin:25px 0;">
+                    <table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius:10px; margin:25px 0;">
                       <tr>
-                        <td align="center" style="padding:20px;">
-                          <h3 style="margin:0 0 10px 0;">🔑 Tu Token de Activación</h3>
-                          <div style="font-size:22px; font-weight:bold; color:#EF4444; letter-spacing:2px; font-family:'Courier New', monospace; background:#fff; padding:12px; border-radius:8px; border:2px dashed #EF4444; display:inline-block;">${data.token}</div>
-                          <p style="margin:10px 0 0 0;"><strong>¡Guarda este token en un lugar seguro!</strong></p>
+                        <td align="center" style="padding:20px; color:#fff;">
+                          <h3 style="margin:0 0 10px 0; color:#fff;">🔑 Tu Token de Activación</h3>
+                          <div style="font-size:22px; font-weight:bold; color:#667eea; letter-spacing:2px; font-family:'Courier New', monospace; background:#fff; padding:12px; border-radius:8px; border:2px dashed #667eea; display:inline-block;">${data.token}</div>
+                          <p style="margin:10px 0 0 0; color:#fff;"><strong>¡Guarda este token en un lugar seguro!</strong></p>
                         </td>
                       </tr>
                     </table>
                     <!-- Info Grid -->
                     <table width="100%" cellpadding="0" cellspacing="0" style="margin:25px 0;">
                       <tr>
-                        <td style="background:#f8f9fa; padding:15px; border-radius:8px; border-left:4px solid #1976d2;">
+                        <td style="background:#f8f9fa; padding:15px; border-radius:8px; border-left:4px solid #667eea;">
                           <strong>🎯 Entradas Permitidas:</strong> ${data.entriesCount} entrada(s)
                         </td>
-                        <td style="background:#f8f9fa; padding:15px; border-radius:8px; border-left:4px solid #1976d2;">
+                        <td style="background:#f8f9fa; padding:15px; border-radius:8px; border-left:4px solid #764ba2;">
                           <strong>⏰ Válido Hasta:</strong> ${data.expiryDate}
                         </td>
                       </tr>
@@ -80,7 +80,7 @@ export const emailService = {
                     <table width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0;">
                       <tr>
                         <td align="center">
-                          <a href="http://localhost:5173/activate-token" style="display:inline-block; background:#EF4444; color:#fff; padding:15px 30px; text-decoration:none; border-radius:8px; font-weight:bold; font-size:16px;">🚀 Activar Token Ahora</a>
+                          <a href="https://chori-survivor-react.vercel.app/activate-token" style="display:inline-block; background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:#fff; padding:15px 30px; text-decoration:none; border-radius:8px; font-weight:bold; font-size:16px; border:none;">🚀 Activar Token Ahora</a>
                         </td>
                       </tr>
                     </table>
@@ -117,7 +117,7 @@ export const emailService = {
                 <tr>
                   <td align="center" style="background:#333; color:#fff; padding:25px; border-bottom-left-radius:10px; border-bottom-right-radius:10px;">
                     <p style="margin:0;">© 2025 Chori Survivor - NFL Survivor Pool</p>
-                    <p style="margin:0;"><strong>Remitente:</strong> ${SENDER_NAME} <span style="color:#1976d2; text-decoration:none;">${SENDER_EMAIL.replace('@', '&#64;')}</span></p>
+                    <p style="margin:0;"><strong>Remitente:</strong> ${SENDER_NAME} <span style="color:#667eea; text-decoration:none;">${SENDER_EMAIL.replace('@', '&#64;')}</span></p>
                     <p style="margin:0;">Este es un correo automático, no responder.</p>
                   </td>
                 </tr>
@@ -135,11 +135,8 @@ export const emailService = {
   // Enviar email con token
   sendTokenEmail: async (data: TokenEmailData): Promise<{ success: boolean; error?: string }> => {
     try {
-      // Sobrescribir email por el del desarrollador
-      const emailData = {
-        ...data,
-        recipientEmail: 'gerry_petrucci_developer@outlook.com'
-      };
+      // Usar el email del formulario (no hardcodeado)
+      const emailData = data;
 
       const templateParams = {
         to_email: emailData.recipientEmail,
@@ -189,7 +186,7 @@ export const emailService = {
       console.warn('⚠️ EmailJS no configurado correctamente - usando modo simulación');
       
       // Crear un email completo para copiar/pegar manualmente
-      const emailContent = `
+          const emailContent = `
 ===========================================
 CHORI SURVIVOR - TOKEN DE ACTIVACIÓN
 ===========================================
@@ -203,9 +200,7 @@ Entradas: ${data.entriesCount}
 Expira: ${data.expiryDate}
 
 Link de activación:
-http://localhost:5173/activate-token
-
-===========================================
+https://chori-survivor-react.vercel.app/activate-token===========================================
       `;
       
       console.log('📋 CONTENIDO DEL EMAIL PARA COPIAR:');
@@ -228,7 +223,7 @@ http://localhost:5173/activate-token
       
       // Intentar envío real con EmailJS
       const templateParams = {
-        to_email: DEV_EMAIL,
+        to_email: data.recipientEmail,
         to_name: 'Usuario',
         from_email: SENDER_EMAIL,
         from_name: SENDER_NAME,
@@ -237,7 +232,7 @@ http://localhost:5173/activate-token
         token: data.token,
         entries_count: data.entriesCount,
         expiry_date: data.expiryDate,
-        activation_link: 'http://localhost:5173/activate-token',
+        activation_link: 'https://chori-survivor-react.vercel.app/activate-token',
         original_email: data.recipientEmail
       };
       
@@ -294,7 +289,7 @@ Entradas: ${data.entriesCount}
 Expira: ${data.expiryDate}
 
 Link de activación:
-http://localhost:5173/activate-token
+https://chori-survivor-react.vercel.app/activate-token
 
 ===========================================
           `;
