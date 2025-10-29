@@ -1,0 +1,118 @@
+name: NFL Data Automation - Cron Jobs
+
+on:
+  schedule:
+    # Set current week: Martes y Jueves a las 5:00 AM CDMX (11:00 AM UTC)
+    - cron: '0 11 * * 2,4'
+    # Daily update: Todos los días a las 11:59 PM CDMX (5:59 AM UTC del día siguiente)
+    - cron: '59 5 * * *'
+    # Update weekly odds: Todos los días a las 5:00 AM CDMX (11:00 AM UTC)
+    - cron: '0 11 * * *'
+  
+  # Permite ejecutar manualmente desde GitHub
+  workflow_dispatch:
+    inputs:
+      job:
+        description: 'Job to run'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - set-current-week
+          - daily-update
+          - update-weekly-odds
+
+jobs:
+  set-current-week:
+    name: Update Current NFL Week
+    runs-on: ubuntu-latest
+    # Solo ejecutar en el cron de martes/jueves o manualmente
+    if: github.event.schedule == '0 11 * * 2,4' || github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'set-current-week' || github.event.inputs.job == 'all')
+    
+    steps:
+      - name: 📅 Set Current Week
+        run: |
+          echo "🔄 Calling set-current-week endpoint..."
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            https://${{ secrets.VERCEL_DOMAIN }}/api/set-current-week)
+          
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n-1)
+          
+          echo "HTTP Status: $http_code"
+          echo "Response: $body"
+          
+          if [ $http_code -eq 200 ]; then
+            echo "✅ Current week updated successfully"
+          else
+            echo "❌ Failed to update current week"
+            exit 1
+          fi
+
+  daily-update:
+    name: Daily Matches and Picks Update
+    runs-on: ubuntu-latest
+    # Solo ejecutar en el cron diario o manualmente
+    if: github.event.schedule == '59 5 * * *' || github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'daily-update' || github.event.inputs.job == 'all')
+    
+    steps:
+      - name: 🏈 Daily Update (Matches + Picks)
+        run: |
+          echo "🔄 Calling daily-update endpoint..."
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            https://${{ secrets.VERCEL_DOMAIN }}/api/daily-update)
+          
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n-1)
+          
+          echo "HTTP Status: $http_code"
+          echo "Response: $body"
+          
+          if [ $http_code -eq 200 ]; then
+            echo "✅ Daily update completed successfully"
+            echo "$body" | jq '.'
+          else
+            echo "❌ Daily update failed"
+            exit 1
+          fi
+
+  update-weekly-odds:
+    name: Update Weekly Odds
+    runs-on: ubuntu-latest
+    # Solo ejecutar en el cron de 5 AM o manualmente
+    if: github.event.schedule == '0 11 * * *' || github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'update-weekly-odds' || github.event.inputs.job == 'all')
+    
+    steps:
+      - name: 🎲 Update Weekly Odds
+        run: |
+          echo "🔄 Calling update-weekly-odds-auto endpoint..."
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            https://${{ secrets.VERCEL_DOMAIN }}/api/update-weekly-odds-auto)
+          
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n-1)
+          
+          echo "HTTP Status: $http_code"
+          echo "Response: $body"
+          
+          if [ $http_code -eq 200 ]; then
+            echo "✅ Weekly odds updated successfully"
+            echo "$body" | jq '.'
+          else
+            echo "❌ Failed to update weekly odds"
+            exit 1
+          fi
+
+  notify-on-failure:
+    name: Notify on Failure
+    runs-on: ubuntu-latest
+    needs: [set-current-week, daily-update, update-weekly-odds]
+    if: failure()
+    
+    steps:
+      - name: 🚨 Send Failure Notification
+        run: |
+          echo "⚠️ One or more cron jobs failed!"
+          echo "Check the workflow logs for details."
+          # Aquí puedes agregar notificaciones por email, Slack, etc.

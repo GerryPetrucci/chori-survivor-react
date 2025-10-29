@@ -1,0 +1,18 @@
+# Python
+chori/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.log
+
+# Node
+node_modules/
+
+# Local env files
+.env.local
+.env
+
+# Logs
+matches_update.log

@@ -123,7 +123,7 @@ const ActivateToken: React.FC = () => {
         setSuccess('¡Usuario creado exitosamente! Redirigiendo al dashboard...');
         setTimeout(() => {
           navigate('/dashboard');
-        }, 1500);
+        }, 3500);
       } else {
         // Si requiere confirmación de email
         setSuccess(
@@ -132,7 +132,7 @@ const ActivateToken: React.FC = () => {
         );
         setTimeout(() => {
           navigate('/login');
-        }, 5000);
+        }, 7000);
       }
     } catch (err: any) {
       console.error('❌ Error en activación de token:', err);
