@@ -1257,5 +1257,6 @@ async def update_weekly_odds_auto():
         logger.error(f"❌ AUTO ODDS UPDATE: Error - {e}")
         raise HTTPException(status_code=500, detail=f"Error en update-weekly-odds-auto: {str(e)}")
 
-# Handler para Vercel
-handler = app
+# Handler para Vercel con Mangum
+from mangum import Mangum
+handler = Mangum(app)
