@@ -159,7 +159,7 @@ export default function TokenGeneratorModal({ open, onClose }: TokenGeneratorMod
       let emailError = '';
       
       try {
-        const emailResult = await emailService.sendTokenEmailMock({
+        const emailResult = await emailService.sendTokenEmail({
           token,
           recipientEmail: formData.email,
           entriesCount: formData.entriesCount,
@@ -374,8 +374,8 @@ export default function TokenGeneratorModal({ open, onClose }: TokenGeneratorMod
             {tokenResult.emailSent ? (
               <Alert severity="success">
                 <Typography variant="body2">
-                  ✅ Email enviado a: <strong>gerry_petrucci_developer@outlook.com</strong><br/>
-                  📱 El usuario puede activar el token en: <strong>http://localhost:5173/activate-token</strong>
+                  ✅ Email enviado a: <strong>{formData.email}</strong><br/>
+                  📱 El usuario puede activar el token en: <strong>https://chori-survivor-react.vercel.app/activate-token</strong>
                 </Typography>
               </Alert>
             ) : (
