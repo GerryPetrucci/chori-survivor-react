@@ -36,7 +36,8 @@ BASE_URL = "https://nfl-api-data.p.rapidapi.com"
 RAPIDAPI_HOST = "nfl-api-data.p.rapidapi.com"
 CDMX_TZ = pytz.timezone('America/Mexico_City')
 
-app = FastAPI()
+# Crear app FastAPI con root_path para que funcione detrás del proxy /api
+app = FastAPI(root_path="/api")
 
 def validate_score(score):
     if score is None:
