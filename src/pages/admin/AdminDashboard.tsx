@@ -76,11 +76,25 @@ export default function AdminDashboard() {
 
       const currentWeek = seasons?.current_week || 5;
       
+      // Calcular entradas sin picks en la semana actual
+      const activeEntriesList = entries?.filter((e: any) => e.is_active) || [];
+      const activeEntryIds = activeEntriesList.map((e: any) => e.id);
+      
+      // Obtener picks de la semana actual
+      const { data: currentWeekPicks } = await supabase
+        .from('picks')
+        .select('entry_id')
+        .eq('season_id', seasonId)
+        .eq('week', currentWeek);
+      
+      const entriesWithPicks = new Set(currentWeekPicks?.map((p: any) => p.entry_id) || []);
+      const entriesWithoutPicks = activeEntryIds.filter(id => !entriesWithPicks.has(id));
+      
       setStats({
         totalUsers: users?.length || 0,
-        activeEntries: entries?.filter((e: any) => e.is_active).length || 0,
+        activeEntries: activeEntriesList.length,
         eliminatedEntries: entries?.filter((e: any) => !e.is_active).length || 0,
-        usersWithoutPicks: 0, 
+        usersWithoutPicks: entriesWithoutPicks.length,
         currentWeek: currentWeek,
         totalMatches: matches?.length || 0,
         pendingMatches: matches?.filter((m: any) => m.status === 'scheduled' || m.status === 'in_progress').length || 0,
@@ -118,6 +132,13 @@ export default function AdminDashboard() {
   const survivalRate = stats && (stats.activeEntries + stats.eliminatedEntries) > 0 
     ? Math.round((stats.activeEntries / (stats.activeEntries + stats.eliminatedEntries)) * 100)
     : 0;
+
+  // Determinar color de supervivencia
+  const getSurvivalColor = () => {
+    if (survivalRate >= 70) return 'success.main';
+    if (survivalRate >= 40) return 'warning.main';
+    return 'error.main';
+  };
 
   return (
     <Box>
@@ -161,17 +182,17 @@ export default function AdminDashboard() {
 
       {/* KPIs Grid */}
       <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 3, mb: 4 }}>
-        <Card sx={{ bgcolor: 'success.main', color: 'primary.contrastText' }}>
+        <Card sx={{ bgcolor: 'info.main', color: 'info.contrastText' }}>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
               <PeopleIcon sx={{ mr: 1 }} />
-              <Typography variant="h6">Usuarios Activos</Typography>
+              <Typography variant="h6">Total Usuarios</Typography>
             </Box>
             <Typography variant="h3" fontWeight="bold">
               {stats?.totalUsers}
             </Typography>
             <Typography variant="body2" sx={{ opacity: 0.8 }}>
-              Total registrados
+              Registrados en el sistema
             </Typography>
           </CardContent>
         </Card>
@@ -195,7 +216,7 @@ export default function AdminDashboard() {
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
               <PersonOffIcon sx={{ mr: 1 }} />
-              <Typography variant="h6">Eliminadas</Typography>
+              <Typography variant="h6">Entradas Eliminadas</Typography>
             </Box>
             <Typography variant="h3" fontWeight="bold">
               {stats?.eliminatedEntries}
@@ -228,7 +249,7 @@ export default function AdminDashboard() {
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
               <SportsIcon sx={{ mr: 1, color: 'info.main' }} />
-              <Typography variant="h6">Partidos</Typography>
+              <Typography variant="h6">Partidos Totales</Typography>
             </Box>
             <Typography variant="h4" fontWeight="bold" color="info.main">
               {stats?.totalMatches}
@@ -253,14 +274,14 @@ export default function AdminDashboard() {
         <Card>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <ScheduleIcon sx={{ mr: 1, color: 'info.main' }} />
+              <ScheduleIcon sx={{ mr: 1, color: 'primary.main' }} />
               <Typography variant="h6">Semana Actual</Typography>
             </Box>
-            <Typography variant="h4" fontWeight="bold" color="info.main">
+            <Typography variant="h4" fontWeight="bold" color="primary.main">
               {stats?.currentWeek}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              de 18 semanas
+              de 18 semanas totales
             </Typography>
           </CardContent>
         </Card>
@@ -268,22 +289,22 @@ export default function AdminDashboard() {
         <Card>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <TrendingUpIcon sx={{ mr: 1, color: 'success.main' }} />
-              <Typography variant="h6">Supervivencia</Typography>
+              <TrendingUpIcon sx={{ mr: 1, color: getSurvivalColor() }} />
+              <Typography variant="h6">Tasa de Supervivencia</Typography>
             </Box>
-            <Typography variant="h4" fontWeight="bold" color="success.main">
+            <Typography variant="h4" fontWeight="bold" color={getSurvivalColor()}>
               {survivalRate}%
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Tasa de supervivencia
+              {stats?.activeEntries} de {stats && (stats.activeEntries + stats.eliminatedEntries)} entradas vivas
             </Typography>
           </CardContent>
         </Card>
       </Box>
 
       {/* Mensaje de éxito */}
-      <Alert severity="success" sx={{ mt: 2 }}>
-        🎉 ¡Panel de administración funcionando correctamente! Todos los KPIs están actualizados.
+      <Alert severity="info" icon={false} sx={{ mt: 2 }}>
+        📊 Panel actualizado • Semana {stats?.currentWeek} • {stats?.activeEntries} entradas activas de {stats && (stats.activeEntries + stats.eliminatedEntries)} totales
       </Alert>
 
       {/* Modal de generación de tokens */}
