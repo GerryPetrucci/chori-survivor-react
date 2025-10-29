@@ -722,78 +722,88 @@ async def set_current_week():
         season_id = current_season['id']
         now_cdmx = datetime.now(CDMX_TZ)
         
-        # Obtener el último partido completado o en progreso
-        last_match_query = supabase.table("matches")\
+        # Obtener todos los partidos completados ordenados por semana descendente
+        completed_matches_query = supabase.table("matches")\
             .select("week, game_date, status")\
             .eq("season_id", season_id)\
+            .in_("status", ["completed", "final", "Final"])\
+            .order("week", desc=True)\
             .order("game_date", desc=True)\
-            .limit(50)\
+            .limit(100)\
             .execute()
         
-        if not last_match_query.data:
-            # No hay partidos, usar semana 1
-            calculated_week = 1
-            logger.info("No hay partidos registrados, usando semana 1")
-        else:
-            matches = last_match_query.data
+        if not completed_matches_query.data:
+            # No hay partidos completados, verificar si hay partidos programados
+            scheduled_matches = supabase.table("matches")\
+                .select("week, game_date, status")\
+                .eq("season_id", season_id)\
+                .eq("status", "scheduled")\
+                .order("game_date", asc=False)\
+                .limit(1)\
+                .execute()
             
-            # Buscar el último partido completado
-            last_completed_match = None
-            for match in matches:
-                if match.get('status') in ['completed', 'final', 'Final']:
-                    last_completed_match = match
-                    break
-            
-            if not last_completed_match:
-                # No hay partidos completados aún, verificar si ya empezó la semana 1
-                first_match = matches[-1]  # El partido más antiguo
-                first_match_date = datetime.fromisoformat(first_match['game_date'].replace('Z', '+00:00'))
-                first_match_date_cdmx = first_match_date.astimezone(CDMX_TZ)
-                
-                if now_cdmx >= first_match_date_cdmx:
-                    # Ya pasó el primer partido, estamos en esa semana
-                    calculated_week = first_match['week']
-                else:
-                    # Aún no empieza la temporada
-                    calculated_week = 1
-                
-                logger.info(f"No hay partidos completados. Primer partido: {first_match_date_cdmx}, semana: {calculated_week}")
+            if scheduled_matches.data:
+                # Hay partidos programados, estamos en la semana del primer partido programado
+                calculated_week = scheduled_matches.data[0]['week']
+                logger.info(f"No hay partidos completados. Primera semana programada: {calculated_week}")
             else:
-                # Hay partidos completados
-                last_week = last_completed_match['week']
-                last_match_date = datetime.fromisoformat(last_completed_match['game_date'].replace('Z', '+00:00'))
-                last_match_date_cdmx = last_match_date.astimezone(CDMX_TZ)
-                
-                # Calcular medianoche del día siguiente al último partido
-                midnight_next_day = (last_match_date_cdmx + timedelta(days=1)).replace(
-                    hour=0, minute=0, second=0, microsecond=0
-                )
-                
-                logger.info(f"Último partido completado: Semana {last_week}, Fecha: {last_match_date_cdmx}")
-                logger.info(f"Medianoche siguiente: {midnight_next_day}, Ahora: {now_cdmx}")
-                
-                if now_cdmx >= midnight_next_day:
-                    # Ya pasó medianoche después del último partido
-                    # Verificar si hay partidos de la siguiente semana
-                    next_week = last_week + 1
-                    next_week_matches = supabase.table("matches")\
-                        .select("week")\
-                        .eq("season_id", season_id)\
-                        .eq("week", next_week)\
-                        .limit(1)\
-                        .execute()
-                    
-                    if next_week_matches.data:
-                        calculated_week = next_week
-                        logger.info(f"Ya pasó medianoche, nueva semana: {calculated_week}")
+                # No hay partidos en absoluto
+                calculated_week = 1
+                logger.info("No hay partidos registrados, usando semana 1")
+        else:
+            # Hay partidos completados
+            completed_matches = completed_matches_query.data
+            
+            # Encontrar la semana más alta completada
+            max_completed_week = max(match['week'] for match in completed_matches)
+            
+            # Obtener el último partido de esa semana
+            last_match_of_week = None
+            for match in completed_matches:
+                if match['week'] == max_completed_week:
+                    if not last_match_of_week:
+                        last_match_of_week = match
                     else:
-                        # No hay más semanas, mantener la última
-                        calculated_week = last_week
-                        logger.info(f"No hay semana {next_week}, manteniendo semana {last_week}")
+                        match_date = datetime.fromisoformat(match['game_date'].replace('Z', '+00:00'))
+                        current_last_date = datetime.fromisoformat(last_match_of_week['game_date'].replace('Z', '+00:00'))
+                        if match_date > current_last_date:
+                            last_match_of_week = match
+            
+            last_week = last_match_of_week['week']
+            last_match_date = datetime.fromisoformat(last_match_of_week['game_date'].replace('Z', '+00:00'))
+            last_match_date_cdmx = last_match_date.astimezone(CDMX_TZ)
+            
+            # Calcular medianoche del día siguiente al último partido
+            midnight_next_day = (last_match_date_cdmx + timedelta(days=1)).replace(
+                hour=0, minute=0, second=0, microsecond=0
+            )
+            
+            logger.info(f"Última semana completada: {last_week}")
+            logger.info(f"Último partido de semana {last_week}: {last_match_date_cdmx}")
+            logger.info(f"Medianoche siguiente: {midnight_next_day}, Ahora: {now_cdmx}")
+            
+            if now_cdmx >= midnight_next_day:
+                # Ya pasó medianoche después del último partido
+                # Verificar si hay partidos de la siguiente semana
+                next_week = last_week + 1
+                next_week_matches = supabase.table("matches")\
+                    .select("week")\
+                    .eq("season_id", season_id)\
+                    .eq("week", next_week)\
+                    .limit(1)\
+                    .execute()
+                
+                if next_week_matches.data:
+                    calculated_week = next_week
+                    logger.info(f"✅ Ya pasó medianoche, nueva semana: {calculated_week}")
                 else:
-                    # Aún no es medianoche, seguimos en la semana del último partido
+                    # No hay más semanas, mantener la última
                     calculated_week = last_week
-                    logger.info(f"Aún no es medianoche, semana actual: {calculated_week}")
+                    logger.info(f"No hay semana {next_week}, manteniendo semana {last_week}")
+            else:
+                # Aún no es medianoche, seguimos en la semana del último partido
+                calculated_week = last_week
+                logger.info(f"Aún no es medianoche, semana actual: {calculated_week}")
         
         # Limitar a max_weeks
         max_weeks = current_season.get('max_weeks', 18)
