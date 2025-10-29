@@ -709,69 +709,139 @@ async def update_matches(body: UpdateMatchesRequest = Body(None)):
 @app.post("/set-current-week")
 async def set_current_week():
     """
-    Calcula y actualiza automáticamente la semana actual en la temporada activa.
+    Calcula y actualiza automáticamente la semana actual basándose en los partidos.
+    La nueva semana comienza a las 00:00 del día siguiente después del último partido de la semana anterior.
     """
     try:
+        # Obtener temporada activa
         season_query = supabase.table("seasons").select("*").eq("is_active", True).execute()
         if not season_query.data:
             raise HTTPException(status_code=404, detail="No hay temporada activa")
+        
         current_season = season_query.data[0]
-        today = datetime.now(pytz.utc)
-        if current_season.get('start_date'):
-            season_start = datetime.strptime(current_season['start_date'], "%Y-%m-%d")
-            season_start = pytz.utc.localize(season_start)
+        season_id = current_season['id']
+        now_cdmx = datetime.now(CDMX_TZ)
+        
+        # Obtener el último partido completado o en progreso
+        last_match_query = supabase.table("matches")\
+            .select("week, game_date, status")\
+            .eq("season_id", season_id)\
+            .order("game_date", desc=True)\
+            .limit(50)\
+            .execute()
+        
+        if not last_match_query.data:
+            # No hay partidos, usar semana 1
+            calculated_week = 1
+            logger.info("No hay partidos registrados, usando semana 1")
         else:
-            season_start = datetime(current_season['year'], 9, 4, tzinfo=pytz.utc)
-        if today < season_start:
-            calculated_week = 0
-        else:
-            weeks_passed = (today - season_start).days // 7
-            calculated_week = min(weeks_passed + 1, current_season.get('max_weeks', 18))
+            matches = last_match_query.data
+            
+            # Buscar el último partido completado
+            last_completed_match = None
+            for match in matches:
+                if match.get('status') in ['completed', 'final', 'Final']:
+                    last_completed_match = match
+                    break
+            
+            if not last_completed_match:
+                # No hay partidos completados aún, verificar si ya empezó la semana 1
+                first_match = matches[-1]  # El partido más antiguo
+                first_match_date = datetime.fromisoformat(first_match['game_date'].replace('Z', '+00:00'))
+                first_match_date_cdmx = first_match_date.astimezone(CDMX_TZ)
+                
+                if now_cdmx >= first_match_date_cdmx:
+                    # Ya pasó el primer partido, estamos en esa semana
+                    calculated_week = first_match['week']
+                else:
+                    # Aún no empieza la temporada
+                    calculated_week = 1
+                
+                logger.info(f"No hay partidos completados. Primer partido: {first_match_date_cdmx}, semana: {calculated_week}")
+            else:
+                # Hay partidos completados
+                last_week = last_completed_match['week']
+                last_match_date = datetime.fromisoformat(last_completed_match['game_date'].replace('Z', '+00:00'))
+                last_match_date_cdmx = last_match_date.astimezone(CDMX_TZ)
+                
+                # Calcular medianoche del día siguiente al último partido
+                midnight_next_day = (last_match_date_cdmx + timedelta(days=1)).replace(
+                    hour=0, minute=0, second=0, microsecond=0
+                )
+                
+                logger.info(f"Último partido completado: Semana {last_week}, Fecha: {last_match_date_cdmx}")
+                logger.info(f"Medianoche siguiente: {midnight_next_day}, Ahora: {now_cdmx}")
+                
+                if now_cdmx >= midnight_next_day:
+                    # Ya pasó medianoche después del último partido
+                    # Verificar si hay partidos de la siguiente semana
+                    next_week = last_week + 1
+                    next_week_matches = supabase.table("matches")\
+                        .select("week")\
+                        .eq("season_id", season_id)\
+                        .eq("week", next_week)\
+                        .limit(1)\
+                        .execute()
+                    
+                    if next_week_matches.data:
+                        calculated_week = next_week
+                        logger.info(f"Ya pasó medianoche, nueva semana: {calculated_week}")
+                    else:
+                        # No hay más semanas, mantener la última
+                        calculated_week = last_week
+                        logger.info(f"No hay semana {next_week}, manteniendo semana {last_week}")
+                else:
+                    # Aún no es medianoche, seguimos en la semana del último partido
+                    calculated_week = last_week
+                    logger.info(f"Aún no es medianoche, semana actual: {calculated_week}")
+        
+        # Limitar a max_weeks
+        max_weeks = current_season.get('max_weeks', 18)
+        calculated_week = min(calculated_week, max_weeks)
+        
+        # Actualizar en la base de datos
         supabase.table("seasons").update({
             "current_week": calculated_week
-        }).eq("id", current_season['id']).execute()
-        logger.info(f"Semana actual actualizada automáticamente a: {calculated_week}")
+        }).eq("id", season_id).execute()
+        
+        logger.info(f"✅ Semana actual actualizada a: {calculated_week}")
+        
         return {
             "current_week": calculated_week,
             "season_year": current_season['year'],
-            "season_id": current_season['id'],
-            "updated": True
+            "season_id": season_id,
+            "updated": True,
+            "timestamp": now_cdmx.isoformat()
         }
+        
     except Exception as e:
-        logger.error(f"Error al actualizar la semana actual: {e}")
+        logger.error(f"❌ Error al actualizar la semana actual: {e}")
         raise HTTPException(status_code=500, detail=f"Error al actualizar la semana actual: {str(e)}")
 
 @app.get("/current-week")
 async def get_current_week():
+    """
+    Obtiene la semana actual de la temporada activa.
+    Usa la misma lógica que set_current_week pero en modo solo lectura.
+    """
     try:
+        # Simplemente leer el valor de current_week de la temporada activa
         season_query = supabase.table("seasons").select("*").eq("is_active", True).execute()
         if not season_query.data:
             raise HTTPException(status_code=404, detail="No hay temporada activa")
+        
         current_season = season_query.data[0]
-        today = datetime.now(pytz.utc)
-        if current_season.get('start_date'):
-            season_start = datetime.strptime(current_season['start_date'], "%Y-%m-%d")
-            season_start = pytz.utc.localize(season_start)
-        else:
-            season_start = datetime(current_season['year'], 9, 4, tzinfo=pytz.utc)
-        if today < season_start:
-            calculated_week = 0
-        else:
-            weeks_passed = (today - season_start).days // 7
-            calculated_week = min(weeks_passed + 1, current_season.get('max_weeks', 18))
-        supabase.table("seasons").update({
-            "current_week": calculated_week
-        }).eq("id", current_season['id']).execute()
-        logger.info(f"Semana actual actualizada a: {calculated_week}")
+        
         return {
-            "current_week": calculated_week,
+            "current_week": current_season['current_week'],
             "season_year": current_season['year'],
             "season_id": current_season['id'],
-            "updated": True
+            "timestamp": datetime.now(CDMX_TZ).isoformat()
         }
+        
     except Exception as e:
-        logger.error(f"Error al calcular la semana actual: {e}")
-        raise HTTPException(status_code=500, detail=f"Error al calcular la semana actual: {str(e)}")
+        logger.error(f"❌ Error al obtener la semana actual: {e}")
+        raise HTTPException(status_code=500, detail=f"Error al obtener la semana actual: {str(e)}")
 
 @app.get("/test-env")
 async def test_env():
