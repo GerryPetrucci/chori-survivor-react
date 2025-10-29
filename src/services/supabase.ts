@@ -57,24 +57,15 @@ export const authService = {
         fullName 
       });
       
-      // Workaround temporal para emails problemáticos
-      let processedEmail = originalEmail;
-      if (originalEmail.includes('outlook.com') || originalEmail.includes('hotmail.com')) {
-        console.log('⚠️ Email de Outlook/Hotmail detectado, usando workaround...');
-        processedEmail = originalEmail.replace(/@(outlook|hotmail)\.com$/, '@gmail.com');
-        console.log('🔄 Email procesado:', processedEmail);
-      }
-      
       // Intentar crear usuario con retry automático en caso de rate limiting (429)
       const signUpResult = await retryWithBackoff(async () => {
         return await supabase.auth.signUp({
-          email: processedEmail,
+          email: originalEmail,
           password,
           options: {
             data: {
               username,
               full_name: fullName,
-              original_email: originalEmail, // Guardar el email original
             }
           }
         });
