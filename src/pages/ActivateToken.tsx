@@ -122,7 +122,17 @@ const ActivateToken: React.FC = () => {
         navigate('/login');
       }, 2000);
     } catch (err: any) {
-      setError(err.message || 'Error al crear usuario');
+      console.error('❌ Error en activación de token:', err);
+      
+      // Manejar específicamente el error 429 (Rate Limiting)
+      if (err?.status === 429 || err?.message?.includes('429')) {
+        setError(
+          '⏳ Demasiados registros recientes. Por favor intenta nuevamente en 5-10 minutos. ' +
+          'Si el problema persiste, contacta al administrador.'
+        );
+      } else {
+        setError(err.message || 'Error al crear usuario');
+      }
     } finally {
       setLoading(false);
     }
@@ -236,7 +246,8 @@ const ActivateToken: React.FC = () => {
               type="email"
               value={userForm.email}
               onChange={(e) => setUserForm(prev => ({ ...prev, email: e.target.value }))}
-              disabled={loading || !!userForm.email}
+              disabled={loading}
+              helperText="Este será tu email para iniciar sesión"
               sx={textFieldSx}
             />
             <TextField
