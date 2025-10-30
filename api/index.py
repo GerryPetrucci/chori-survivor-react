@@ -1125,9 +1125,9 @@ async def auto_update_picks():
         season_id = current_season['id']
         week_num = current_season.get('current_week', 1)
 
-        # Obtener todos los picks pendientes de la temporada actual
-        picks_query = supabase.table("picks").select("*, match_id, selected_team_id, entry_id, week, created_at").eq("season_id", season_id).in_("result", [None, "pending"]).lte("week", week_num).execute()
-        picks = picks_query.data if picks_query.data else []
+    # Obtener todos los picks de la temporada actual hasta la semana actual, sin importar el valor de 'result'
+    picks_query = supabase.table("picks").select("*, match_id, selected_team_id, entry_id, week, created_at").eq("season_id", season_id).lte("week", week_num).execute()
+    picks = picks_query.data if picks_query.data else []
         updated_count = 0
         for pick in picks:
             match_id = pick['match_id']
