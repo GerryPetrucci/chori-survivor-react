@@ -1,3 +1,22 @@
+// Componente personalizado para el tick del eje X que muestra el logo del equipo
+const TeamLogoTick = ({ x, y, payload, ...rest }: any) => {
+  // trendsData y getTeamLogo deben estar en scope, así que se pasan como props o se accede por closure
+  // Aquí asumimos que payload.value es la abreviación
+  // Buscar el equipo por la abreviación
+  if (!rest.trendsData || !rest.getTeamLogo) return null;
+  const team = rest.trendsData.pickDistribution.find((t: any) => t.team_abbreviation === payload.value);
+  if (!team) return null;
+  return (
+    <image
+      href={rest.getTeamLogo(team.logo_url)}
+      x={x - 12}
+      y={y + 6}
+      width={24}
+      height={24}
+      style={{ borderRadius: '50%' }}
+    />
+  );
+};
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -349,7 +368,15 @@ const Trends: React.FC = () => {
               loss_count: team.loss_count !== undefined ? team.loss_count : (team.win_count !== undefined ? team.pick_count - team.win_count : undefined)
             }))}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="team_abbreviation" style={{ fontSize: '12px' }} />
+              <XAxis
+                dataKey="team_abbreviation"
+                style={{ fontSize: '12px' }}
+                tick={
+                  <TeamLogoTick trendsData={trendsData} getTeamLogo={getTeamLogo} />
+                }
+                interval={0}
+                height={48}
+              />
               <YAxis style={{ fontSize: '12px' }} />
               <Tooltip />
               <Legend wrapperStyle={{ fontSize: '14px' }} />

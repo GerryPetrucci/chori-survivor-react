@@ -416,7 +416,17 @@ export default function MatchesPage() {
                         <Typography variant="h6" fontWeight="bold" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
                           {getScoreDisplay(match)}
                         </Typography>
-                        <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'block', md: 'none' }, fontSize: '0.7rem' }}>
+                        <Box sx={{ display: { xs: 'flex', sm: 'none' }, alignItems: 'center', justifyContent: 'center', gap: 1, mt: 0.5 }}>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                            {new Date(match.game_date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </Typography>
+                          <OddsTooltip
+                            matchId={match.id}
+                            homeTeam={match.home_team!}
+                            awayTeam={match.away_team!}
+                          />
+                        </Box>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', md: 'block' }, fontSize: '0.7rem' }}>
                           {new Date(match.game_date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </Typography>
                       </Box>
