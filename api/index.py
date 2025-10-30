@@ -513,33 +513,38 @@ async def update_matches(body: UpdateMatchesRequest = Body(None)):
             
             events = data.get('events', [])
             logger.info(f"TOTAL EVENTS FOUND: {len(events)}")
-            
+
+            # Filtrar solo partidos de temporada regular (season.type == 2)
+            regular_events = []
+            for event in events:
+                season_info = event.get('season', {})
+                if season_info.get('type') == 2:
+                    regular_events.append(event)
+            events = regular_events
+            logger.info(f"FILTERED EVENTS (regular season only): {len(events)}")
+
             # Solo filtrar por fecha si NO se especificó una semana específica
             if week_param is None:
                 # Filtrar solo eventos desde la fecha actual hacia adelante
                 today = datetime.now(pytz.utc)
                 filtered_events = []
-                
                 for event in events:
                     event_date = event.get('date')
                     if not event_date:
                         continue
-                        
                     try:
                         event_dt = datetime.strptime(event_date, "%Y-%m-%dT%H:%MZ")
                         event_dt = pytz.utc.localize(event_dt)
-                        
                         # Solo procesar eventos desde hoy hacia adelante
                         if event_dt.date() >= today.date():
                             filtered_events.append(event)
                     except Exception as e:
                         logger.warning(f"Error parseando fecha {event_date}: {e}")
                         continue
-                
                 events = filtered_events
                 logger.info(f"FILTERED EVENTS (from today onwards): {len(events)}")
             else:
-                logger.info(f"PROCESANDO SEMANA ESPECÍFICA {week_param}: No filtrar por fecha, procesando todos los eventos")
+                logger.info(f"PROCESANDO SEMANA ESPECÍFICA {week_param}: No filtrar por fecha, procesando solo eventos de temporada regular")
             
         except Exception as e:
             logger.error(f"ERROR API: {url} - {e}")
@@ -1139,9 +1144,15 @@ async def auto_update_picks():
             home_score = match['home_score']
             away_score = match['away_score']
             game_date = match.get('game_date')
-            
-            # Solo si hay marcador
+
+            # Si no hay marcador, poner pick en 'pending'
             if home_score is None or away_score is None:
+                if pick.get('result') != 'pending':
+                    supabase.table("picks").update({
+                        "result": "pending",
+                        "points_earned": 0
+                    }).eq("id", pick['id']).execute()
+                    logger.info(f"Pick ID {pick['id']}: Partido sin marcador, resultado cambiado a 'pending'")
                 continue
 
             # Calcular el multiplicador basado en las horas de anticipación
