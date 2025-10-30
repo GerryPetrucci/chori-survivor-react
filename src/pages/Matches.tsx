@@ -222,9 +222,9 @@ export default function MatchesPage() {
 
   const getScoreDisplay = (match: Match) => {
     if (match.status === 'completed' && match.home_score !== null && match.away_score !== null) {
-      return `${match.home_score} - ${match.away_score}`;
+      return `${match.away_score} - ${match.home_score}`;
     } else if (match.status === 'in_progress' && match.home_score !== null && match.away_score !== null) {
-      return `${match.home_score} - ${match.away_score}`;
+      return `${match.away_score} - ${match.home_score}`;
     } else {
       return '–';
     }
@@ -417,7 +417,7 @@ export default function MatchesPage() {
                           {getScoreDisplay(match)}
                         </Typography>
                         <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'block', md: 'none' }, fontSize: '0.7rem' }}>
-                          {new Date(match.game_date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+                          {new Date(match.game_date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </Typography>
                       </Box>
                     </TableCell>
