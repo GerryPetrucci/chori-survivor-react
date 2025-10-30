@@ -64,6 +64,7 @@ async def root():
             "POST /set-current-week",
             "GET /current-week",
             "POST /auto-update-picks",
+            "POST /auto-assign-last-game-picks",
             "POST /daily-update",
             "POST /update-weekly-odds-auto",
             "GET /test-env",
@@ -73,7 +74,8 @@ async def root():
         "cron_jobs": {
             "set-current-week": "Martes y Jueves a las 5:00 AM (0 5 * * 2,4)",
             "daily-update": "Todos los días a las 23:59 (59 23 * * *)",
-            "update-weekly-odds-auto": "Todos los días a las 5:00 AM (0 5 * * *)"
+            "update-weekly-odds-auto": "Todos los días a las 5:00 AM (0 5 * * *)",
+            "auto-assign-last-game-picks": "5 minutos después del último partido de la semana (dinámico)"
         }
     }
 
@@ -1170,9 +1172,22 @@ async def auto_update_picks():
                     # Log para depuración
                     logger.info(f"Pick ID {pick['id']}: Pick time={pick_time}, Match time={match_time}, Hours diff={hours_diff:.2f}")
                     
-                    # Solo considerar picks hechos antes del partido
-                    if hours_diff > 0:
+                    # Lógica especial del multiplicador:
+                    # - Si pick se hace DESPUÉS del partido (hours_diff <= 0): multiplier = 0
+                    # - Si pick se hace minutos ANTES (0 < hours_diff < 1): multiplier = 1
+                    # - Si pick se hace horas ANTES (hours_diff >= 1): multiplier = floor(hours_diff)
+                    if hours_diff <= 0:
+                        # Pick después del partido
+                        multiplier = 0
+                        logger.info(f"  → Pick made AFTER game: multiplier = 0")
+                    elif hours_diff < 1:
+                        # Pick minutos antes (0 < hours < 1)
+                        multiplier = 1
+                        logger.info(f"  → Pick made minutes before game: multiplier = 1")
+                    else:
+                        # Pick horas antes (hours >= 1)
                         multiplier = floor(hours_diff)
+                        logger.info(f"  → Pick made {floor(hours_diff)} hours before game: multiplier = {multiplier}")
                 except Exception as e:
                     logger.error(f"Error calculando multiplicador para pick {pick['id']}: {e}")
                     multiplier = 0
@@ -1327,6 +1342,284 @@ async def update_weekly_odds_auto():
     except Exception as e:
         logger.error(f"❌ AUTO ODDS UPDATE: Error - {e}")
         raise HTTPException(status_code=500, detail=f"Error en update-weekly-odds-auto: {str(e)}")
+
+# =====================================================
+# ENDPOINT FINAL AUTO-PICKS - ASIGNAR PICKS A ENTRADAS SIN SELECCIÓN
+# =====================================================
+
+@app.post("/auto-assign-last-game-picks")
+async def auto_assign_last_game_picks():
+    """
+    Endpoint que se ejecuta 5 minutos después de que el último partido de la semana comience.
+    
+    Lógica:
+    1. Obtiene el último partido de la semana actual (por hora de inicio)
+    2. Identifica todas las entradas que NO han hecho pick para esa semana
+    3. Para cada entrada sin pick:
+       a. Intenta asignar el equipo visitante (away_team) del último partido
+       b. Si el equipo visitante ya fue usado en una semana anterior por esa entrada,
+          asigna el PRIMER equipo que haya PERDIDO en una semana anterior
+       c. Si ningún equipo ha perdido (entrada sin pérdidas), asigna el away_team de todas formas
+    4. El pick se marca como automático con created_at = game_date (así multiplicador = 1)
+    5. El pick se marca como 'auto_assigned' en un campo metadata para rastreo
+    
+    Multiplicador:
+    - Como created_at = game_date, la diferencia es 0 horas
+    - floor(0) = 0, pero necesitamos multiplicador = 1
+    - Por eso se le da created_at = game_date - 1 minuto, así la diferencia es ~0.016 horas
+    - floor(0.016) = 0, pero > 0 entonces multiplicador = 1
+    """
+    try:
+        logger.info("🎯 AUTO ASSIGN PICKS: Iniciando asignación automática de picks")
+        
+        # Obtener temporada activa
+        season_query = supabase.table("seasons").select("*").eq("is_active", True).execute()
+        if not season_query.data:
+            logger.error("No hay temporada activa")
+            raise HTTPException(status_code=404, detail="No hay temporada activa")
+        
+        current_season = season_query.data[0]
+        season_id = current_season['id']
+        current_week = current_season.get('current_week', 1)
+        
+        logger.info(f"📅 Season ID: {season_id}, Week: {current_week}")
+        
+        # PASO 1: Obtener el último partido de la semana (por hora de inicio)
+        matches_query = supabase.table("matches").select(
+            "id, home_team_id, away_team_id, game_date, week"
+        ).eq("season_id", season_id).eq("week", current_week).order("game_date", desc=True).limit(1).execute()
+        
+        if not matches_query.data:
+            logger.warning(f"No hay partidos registrados para la semana {current_week}")
+            return {
+                "status": "no_matches",
+                "message": f"No hay partidos para la semana {current_week}",
+                "picks_assigned": 0
+            }
+        
+        last_match = matches_query.data[0]
+        last_match_id = last_match['id']
+        away_team_id = last_match['away_team_id']
+        game_date = last_match['game_date']
+        
+        logger.info(f"🏈 Last match of week: ID={last_match_id}, Away team={away_team_id}, Game time={game_date}")
+        
+        # PASO 2: Obtener todas las entradas activas de esta semana que NO tengan pick
+        # Primero, obtener todos los entry_ids que YA tienen pick para esta semana
+        existing_picks_query = supabase.table("picks").select(
+            "entry_id"
+        ).eq("season_id", season_id).eq("week", current_week).execute()
+        
+        entry_ids_with_picks = set([p['entry_id'] for p in existing_picks_query.data]) if existing_picks_query.data else set()
+        logger.info(f"Entradas con picks en semana {current_week}: {len(entry_ids_with_picks)}")
+        
+        # Obtener todas las entradas activas
+        all_entries_query = supabase.table("entries").select(
+            "id, user_id"
+        ).eq("season_id", season_id).eq("is_active", True).execute()
+        
+        if not all_entries_query.data:
+            logger.warning("No hay entradas activas")
+            return {
+                "status": "no_entries",
+                "message": "No hay entradas activas",
+                "picks_assigned": 0
+            }
+        
+        entries_without_picks = [e for e in all_entries_query.data if e['id'] not in entry_ids_with_picks]
+        logger.info(f"Entradas SIN pick en semana {current_week}: {len(entries_without_picks)}")
+        
+        if not entries_without_picks:
+            logger.info("Todas las entradas tienen pick para esta semana")
+            return {
+                "status": "all_have_picks",
+                "message": "Todas las entradas ya tienen pick",
+                "picks_assigned": 0
+            }
+        
+        # PASO 3: Asignar picks automáticamente
+        picks_assigned = 0
+        assignment_details = []
+        
+        for entry in entries_without_picks:
+            entry_id = entry['id']
+            logger.info(f"\n📌 Processing entry {entry_id}")
+            
+            # Obtener todos los equipos usados por esta entrada en semanas anteriores
+            used_teams_query = supabase.table("picks").select(
+                "selected_team_id"
+            ).eq("entry_id", entry_id).neq("week", current_week).execute()
+            
+            used_team_ids = set([p['selected_team_id'] for p in used_teams_query.data]) if used_teams_query.data else set()
+            logger.info(f"   Teams previously used: {used_team_ids}")
+            
+            # Determinar qué equipo asignar
+            assigned_team_id = away_team_id
+            assignment_reason = "away_team_default"
+            
+            # Si el away_team ya fue usado, buscar un equipo que haya perdido
+            if away_team_id in used_team_ids:
+                logger.info(f"   Away team {away_team_id} ya fue usado, buscando equipo que perdió...")
+                
+                # Obtener picks perdedores de esta entrada en semanas anteriores
+                lost_picks_query = supabase.table("picks").select(
+                    "selected_team_id, week"
+                ).eq("entry_id", entry_id).eq("result", "L").execute()
+                
+                if lost_picks_query.data:
+                    # Tomar el primer equipo que perdió
+                    assigned_team_id = lost_picks_query.data[0]['selected_team_id']
+                    lost_week = lost_picks_query.data[0]['week']
+                    assignment_reason = f"lost_team_from_week_{lost_week}"
+                    logger.info(f"   Asignando team {assigned_team_id} que perdió en semana {lost_week}")
+                else:
+                    logger.info(f"   Sin equipos que hayan perdido, manteniendo away_team {away_team_id}")
+                    assignment_reason = "away_team_no_losses"
+            
+            # PASO 4: Crear el pick automático
+            # La clave es que created_at < game_date por 1 minuto, para que el multiplicador sea 1
+            game_datetime = datetime.fromisoformat(game_date.replace('Z', '+00:00')) if isinstance(game_date, str) else game_date
+            pick_datetime = game_datetime - timedelta(minutes=1)  # 1 minuto antes
+            
+            pick_data = {
+                "entry_id": entry_id,
+                "match_id": last_match_id,
+                "selected_team_id": assigned_team_id,
+                "week": current_week,
+                "season_id": season_id,
+                "confidence": 0,  # Auto-assigned
+                "result": "pending",
+                "created_at": pick_datetime.isoformat(),
+                "metadata": {
+                    "auto_assigned": True,
+                    "reason": assignment_reason,
+                    "assigned_at": datetime.now(pytz.timezone('America/Mexico_City')).isoformat()
+                }
+            }
+            
+            try:
+                insert_result = supabase.table("picks").insert(pick_data).execute()
+                if insert_result.data:
+                    picks_assigned += 1
+                    assignment_details.append({
+                        "entry_id": entry_id,
+                        "team_id": assigned_team_id,
+                        "reason": assignment_reason,
+                        "match_id": last_match_id,
+                        "week": current_week,
+                        "status": "success"
+                    })
+                    logger.info(f"   ✅ Pick asignado a entry {entry_id}: team {assigned_team_id} ({assignment_reason})")
+                else:
+                    logger.error(f"   ❌ Error insertando pick para entry {entry_id}")
+                    assignment_details.append({
+                        "entry_id": entry_id,
+                        "status": "error",
+                        "message": "Insert failed"
+                    })
+            except Exception as e:
+                logger.error(f"   ❌ Exception asignando pick a entry {entry_id}: {e}")
+                assignment_details.append({
+                    "entry_id": entry_id,
+                    "status": "error",
+                    "message": str(e)
+                })
+        
+        logger.info(f"\n✅ AUTO ASSIGN PICKS COMPLETADO: {picks_assigned} picks asignados")
+        
+        return {
+            "status": "completed",
+            "timestamp": datetime.now(pytz.timezone('America/Mexico_City')).isoformat(),
+            "week": current_week,
+            "season_id": season_id,
+            "last_match_id": last_match_id,
+            "picks_assigned": picks_assigned,
+            "total_entries_without_picks": len(entries_without_picks),
+            "assignments": assignment_details
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ AUTO ASSIGN PICKS ERROR: {e}")
+        raise HTTPException(status_code=500, detail=f"Error en auto-assign-last-game-picks: {str(e)}")
+
+@app.get("/get-auto-assign-schedule")
+async def get_auto_assign_schedule():
+    """
+    Devuelve cuándo debe ejecutarse el auto-assign-last-game-picks.
+    Retorna la fecha/hora del último partido + 5 minutos.
+    
+    Usado por GitHub Actions para programar dinámicamente la ejecución.
+    """
+    try:
+        logger.info("🕐 GET SCHEDULE: Calculando tiempo de ejecución")
+        
+        # Obtener temporada activa
+        season_query = supabase.table("seasons").select("*").eq("is_active", True).execute()
+        if not season_query.data:
+            raise HTTPException(status_code=404, detail="No hay temporada activa")
+        
+        current_season = season_query.data[0]
+        season_id = current_season['id']
+        current_week = current_season.get('current_week', 1)
+        
+        # Obtener el último partido de la semana
+        matches_query = supabase.table("matches").select(
+            "id, home_team_id, away_team_id, game_date, week, status"
+        ).eq("season_id", season_id).eq("week", current_week).order("game_date", desc=True).limit(1).execute()
+        
+        if not matches_query.data:
+            return {
+                "status": "no_matches",
+                "message": f"No hay partidos para la semana {current_week}",
+                "should_execute": False,
+                "execution_time": None
+            }
+        
+        last_match = matches_query.data[0]
+        game_date_str = last_match['game_date']
+        
+        # Parsear game_date y agregar 5 minutos
+        try:
+            if isinstance(game_date_str, str):
+                try:
+                    game_dt = datetime.strptime(game_date_str, "%Y-%m-%dT%H:%M:%S")
+                except ValueError:
+                    game_dt = datetime.strptime(game_date_str, "%Y-%m-%d %H:%M:%S")
+            else:
+                game_dt = game_date_str
+            
+            # Localizar a CDMX timezone
+            game_dt = CDMX_TZ.localize(game_dt) if game_dt.tzinfo is None else game_dt.astimezone(CDMX_TZ)
+            
+            # Agregar 5 minutos
+            execution_time = game_dt + timedelta(minutes=5)
+            now_cdmx = datetime.now(CDMX_TZ)
+            
+            # Determinar si ya pasó el tiempo de ejecución
+            should_execute_now = now_cdmx >= execution_time
+            minutes_until_execution = (execution_time - now_cdmx).total_seconds() / 60
+            
+            return {
+                "status": "scheduled",
+                "season_id": season_id,
+                "current_week": current_week,
+                "last_match_id": last_match['id'],
+                "game_start_time": game_dt.isoformat(),
+                "execution_time": execution_time.isoformat(),
+                "execution_time_utc": execution_time.astimezone(pytz.utc).isoformat(),
+                "current_time": now_cdmx.isoformat(),
+                "should_execute_now": should_execute_now,
+                "minutes_until_execution": round(minutes_until_execution, 2),
+                "match_status": last_match.get('status', 'unknown')
+            }
+            
+        except Exception as e:
+            logger.error(f"Error parseando fecha: {e}")
+            raise HTTPException(status_code=500, detail=f"Error parseando fecha: {str(e)}")
+        
+    except Exception as e:
+        logger.error(f"❌ GET SCHEDULE ERROR: {e}")
+        raise HTTPException(status_code=500, detail=f"Error obteniendo schedule: {str(e)}")
 
 # Para Vercel, el objeto app es el handler
 # Vercel automáticamente detecta FastAPI y lo ejecuta
