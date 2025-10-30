@@ -289,23 +289,24 @@ export default function Layout() {
           </IconButton>
           
           <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
-            {/* <Box
+            <Box
               component="img"
               src="/assets/logos/diablo_survivor.png"
-              alt="Diablo Survivor Logo"
+              alt="Chori Survivor Logo"
               sx={{
-                height: { xs: 36, sm: 40 },
-                width: { xs: 36, sm: 40 },
-                mr: 2,
+                height: { xs: 32, sm: 36 },
+                width: { xs: 32, sm: 36 },
+                mr: 1.2,
                 borderRadius: 1.5,
-                boxShadow: '0 3px 10px rgba(0,0,0,0.3)',
+                boxShadow: '0 3px 10px rgba(0,0,0,0.18)',
                 transition: 'transform 0.3s ease',
                 cursor: 'pointer',
-                '&:hover': {
-                  transform: 'rotate(5deg) scale(1.1)'
-                }
+                display: { xs: 'inline-block', md: 'none' },
+                background: 'white',
+                objectFit: 'contain',
+                p: 0.5
               }}
-            /> */}
+            />
             <Typography 
               variant="h6" 
               noWrap 

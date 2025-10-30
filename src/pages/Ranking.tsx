@@ -418,15 +418,10 @@ export default function RankingPage() {
                         <Typography variant="body2" fontWeight="bold" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
                           {entry.entry_name}
                         </Typography>
-                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, display: { xs: 'none', sm: 'block' } }}>
+                        {/* Username debajo del nombre de la entrada en xs y sm */}
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' }, display: { xs: 'block', sm: 'block' } }}>
                           {entry.username}
                         </Typography>
-                        <Chip 
-                          label={getStatusText(entry.status)}
-                          color={getStatusColor(entry.status) as any}
-                          size="small"
-                          sx={{ display: { xs: 'inline-flex', sm: 'none' }, height: 16, fontSize: '0.6rem', mt: 0.5 }}
-                        />
                       </Box>
                     </Box>
                   </TableCell>
@@ -438,9 +433,18 @@ export default function RankingPage() {
                     />
                   </TableCell>
                   <TableCell align="center">
-                    <Typography variant="body1" fontWeight="bold" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
-                      {entry.points}
-                    </Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      <Typography variant="body1" fontWeight="bold" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
+                        {entry.points}
+                      </Typography>
+                      {/* Status chip debajo de los puntos en xs */}
+                      <Chip 
+                        label={getStatusText(entry.status)}
+                        color={getStatusColor(entry.status) as any}
+                        size="small"
+                        sx={{ display: { xs: 'inline-flex', sm: 'none' }, height: 16, fontSize: '0.6rem', mt: 0.5 }}
+                      />
+                    </Box>
                   </TableCell>
                 </TableRow>
               ))}

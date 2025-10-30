@@ -21,7 +21,6 @@ import {
 } from '@mui/material';
 import {
   Sports as SportsIcon,
-  Schedule as ScheduleIcon,
   CheckCircle as CheckIcon,
 } from '@mui/icons-material';
 import { matchesService, picksService, seasonsService } from '../../services/supabase';
@@ -172,16 +171,6 @@ export default function PicksModal({ open, onClose, entryId, entryName }: PicksM
     }
   };
 
-  const formatGameTime = (gameDate: string) => {
-    const date = new Date(gameDate);
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const year = date.getFullYear();
-    const hours = date.getHours().toString().padStart(2, '0');
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    
-    return `${day}/${month}/${year} ${hours}:${minutes}`;
-  };
 
   const isGameStarted = (gameDate: string) => {
     const gameTime = new Date(gameDate);
@@ -444,10 +433,17 @@ export default function PicksModal({ open, onClose, entryId, entryName }: PicksM
 
           <Box sx={{ maxHeight: '60vh', overflowY: 'auto', overflowX: 'auto' }}>
             {matches.map((match) => (
-                <Card key={match.id} sx={{ mb: 2, border: selectedMatch === match.id ? 2 : 1, borderColor: selectedMatch === match.id ? 'primary.main' : 'divider', cursor: 'pointer', minWidth: { xs: '600px', sm: 'auto' } }}>
-                  <CardContent sx={{ py: 2 }}>
-                    <Box display="flex" alignItems="center" justifyContent="center" gap={{ xs: 1, sm: 2, md: 3 }} flexWrap={{ xs: 'nowrap', md: 'wrap' }}>
-                    {/* Away Team */}
+              <Card key={match.id} sx={{ mb: 2, border: selectedMatch === match.id ? 2 : 1, borderColor: selectedMatch === match.id ? 'primary.main' : 'divider', cursor: 'pointer', minWidth: { xs: '100%', sm: 'auto' } }}>
+                <CardContent sx={{ py: 2 }}>
+                  <Box 
+                    display="flex" 
+                    alignItems="center" 
+                    justifyContent="center" 
+                    gap={{ xs: 0, sm: 2, md: 3 }} 
+                    flexDirection={{ xs: 'row', sm: 'row' }}
+                    flexWrap={{ xs: 'wrap', md: 'wrap' }}
+                  >
+                    {/* Away Team: círculo, logo, abrev */}
                     <Box display="flex" alignItems="center" gap={1}>
                       <FormControlLabel
                         value={match.away_team_id}
@@ -466,37 +462,43 @@ export default function PicksModal({ open, onClose, entryId, entryName }: PicksM
                         src={getTeamLogo(match.away_team?.logo_url)}
                         alt={match.away_team?.name}
                         style={{ 
-                          width: window.innerWidth < 600 ? 28 : 35, 
-                          height: window.innerWidth < 600 ? 28 : 35, 
+                          width: 28, 
+                          height: 28, 
                           objectFit: 'contain',
                           opacity: canSelectTeam(match.away_team_id, match) ? 1 : 0.4,
                           filter: canSelectTeam(match.away_team_id, match) ? 'none' : 'grayscale(100%)'
                         }}
                       />
-                      <Typography variant="body2" fontWeight="bold" sx={{ minWidth: { xs: 32, sm: 40 }, textAlign: 'center', fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                      <Typography 
+                        variant="body2" 
+                        fontWeight="bold" 
+                        sx={{ minWidth: 32, textAlign: 'center', fontSize: '0.75rem', display: { xs: 'none', sm: 'block' } }}
+                      >
                         {match.away_team?.abbreviation}
                       </Typography>
                       {usedTeams.includes(match.away_team_id) && (
                         <Chip label="Usado" size="small" color="error" variant="outlined" sx={{ fontSize: '0.7rem', height: 20 }} />
                       )}
                     </Box>
-
-                    {/* VS */}
-                    <Typography variant="h6" color="text.secondary">
+                    {/* @ */}
+                    <Typography variant="h6" color="text.secondary" sx={{ my: { xs: 0.5, sm: 0 } }}>
                       @
                     </Typography>
-
-                    {/* Home Team */}
+                    {/* Home Team: abrev, logo, círculo */}
                     <Box display="flex" alignItems="center" gap={1}>
-                      <Typography variant="body2" fontWeight="bold" sx={{ minWidth: { xs: 32, sm: 40 }, textAlign: 'center', fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                      <Typography 
+                        variant="body2" 
+                        fontWeight="bold" 
+                        sx={{ minWidth: 32, textAlign: 'center', fontSize: '0.75rem', display: { xs: 'none', sm: 'block' } }}
+                      >
                         {match.home_team?.abbreviation}
                       </Typography>
                       <img
                         src={getTeamLogo(match.home_team?.logo_url)}
                         alt={match.home_team?.name}
                         style={{ 
-                          width: window.innerWidth < 600 ? 28 : 35, 
-                          height: window.innerWidth < 600 ? 28 : 35, 
+                          width: 28, 
+                          height: 28, 
                           objectFit: 'contain',
                           opacity: canSelectTeam(match.home_team_id, match) ? 1 : 0.4,
                           filter: canSelectTeam(match.home_team_id, match) ? 'none' : 'grayscale(100%)'
@@ -519,15 +521,16 @@ export default function PicksModal({ open, onClose, entryId, entryName }: PicksM
                         <Chip label="Usado" size="small" color="error" variant="outlined" sx={{ fontSize: '0.7rem', height: 20 }} />
                       )}
                     </Box>
-
-                    {/* Game Time and Odds Button */}
-                    <Box display="flex" alignItems="center" gap={1} sx={{ minWidth: { xs: 100, sm: 130 }, flexDirection: { xs: 'column', sm: 'row' } }}>
-                      <Box display="flex" alignItems="center" gap={0.5}>
-                        <ScheduleIcon fontSize="small" color="action" sx={{ display: { xs: 'none', sm: 'block' } }} />
-                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', sm: '0.875rem' } }}>
-                          {formatGameTime(match.game_date)}
-                        </Typography>
-                      </Box>
+                    {/* Fecha y Odds en columna en xs */}
+                    <Box 
+                      display="flex" 
+                      flexDirection="column" 
+                      alignItems="center" 
+                      sx={{ minWidth: 100, mt: { xs: 1, sm: 0 } }}
+                    >
+                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem', mb: 0.5 }}>
+                        {new Date(match.game_date).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </Typography>
                       <OddsTooltip
                         matchId={match.id}
                         homeTeam={match.home_team!}
@@ -535,7 +538,6 @@ export default function PicksModal({ open, onClose, entryId, entryName }: PicksM
                       />
                     </Box>
                   </Box>
-
                   {isGameStarted(match.game_date) && (
                     <Box mt={1} display="flex" justifyContent="center">
                       <Chip label="Partido iniciado" size="small" color="warning" />
