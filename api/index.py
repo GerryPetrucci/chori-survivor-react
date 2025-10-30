@@ -658,15 +658,26 @@ async def update_matches(body: UpdateMatchesRequest = Body(None)):
             logger.info(f"Partido encontrado: {len(match_query.data)} resultados")
             now_str = datetime.now(pytz.utc).strftime("%Y-%m-%d %H:%M:%S")
             
+            # Validar scores 0-0 en partidos no completados
+            if not is_completed and home_score == 0 and away_score == 0:
+                home_score_db = None
+                away_score_db = None
+                status_db = "scheduled"
+            else:
+                home_score_db = home_score
+                away_score_db = away_score
+                status_db = "completed" if is_completed else "scheduled"
+
+            # ...actualización de partido...
             if match_query.data:
                 match = match_query.data[0]
                 logger.info(f"Partido existente - DB: {match.get('home_score')}-{match.get('away_score')}, API: {home_score}-{away_score}")
                 # Actualizar marcadores solo si son diferentes
-                if (match.get('home_score') != home_score or match.get('away_score') != away_score):
+                if (match.get('home_score') != home_score_db or match.get('away_score') != away_score_db):
                     update_data = {
-                        "home_score": home_score,
-                        "away_score": away_score,
-                        "status": "completed" if is_completed else "scheduled",
+                        "home_score": home_score_db,
+                        "away_score": away_score_db,
+                        "status": status_db,
                         "updated_at": now_str
                     }
                     if game_datetime:
@@ -675,7 +686,7 @@ async def update_matches(body: UpdateMatchesRequest = Body(None)):
                     result = supabase.table("matches").update(update_data).eq("id", match['id']).execute()
                     logger.info(f"Resultado actualización: {result}")
                     matches_updated += 1
-                    logger.info(f"Actualizado: {home_team_name} {home_score} - {away_score} {away_team_name} (Semana {week_num})")
+                    logger.info(f"Actualizado: {home_team_name} {home_score_db} - {away_score_db} {away_team_name} (Semana {week_num})")
                 else:
                     logger.info(f"No necesita actualización: {home_team_name} vs {away_team_name} (marcadores iguales)")
             else:
@@ -686,9 +697,9 @@ async def update_matches(body: UpdateMatchesRequest = Body(None)):
                     "home_team_id": home_team_id,
                     "away_team_id": away_team_id,
                     "game_date": game_datetime,
-                    "home_score": home_score,
-                    "away_score": away_score,
-                    "status": "completed" if is_completed else "scheduled",
+                    "home_score": home_score_db,
+                    "away_score": away_score_db,
+                    "status": status_db,
                     "game_type": "regular",
                     "created_at": now_str,
                     "updated_at": now_str
@@ -697,7 +708,7 @@ async def update_matches(body: UpdateMatchesRequest = Body(None)):
                 insert_result = supabase.table("matches").insert(insert_data).execute()
                 logger.info(f"INSERT SUCCESS: {insert_result}")
                 matches_inserted += 1
-                logger.info(f"INSERTED: {home_team_name} vs {away_team_name} (Semana {week_num})")
+                logger.info(f"INSERTED: {home_team_name} vs {away_team_name} (Semana {week_param})")
         logger.info(f"COMPLETED - Actualizados: {matches_updated}, Insertados: {matches_inserted}")
         return {
             "matches_updated": matches_updated,

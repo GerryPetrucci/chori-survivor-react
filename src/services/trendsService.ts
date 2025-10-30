@@ -34,8 +34,8 @@ export interface PickDistribution {
   team_name: string;
   team_abbreviation: string;
   pick_count: number;
-  win_count: number; // Agregado win_count
-  loss_count: number; // Agregado loss_count
+  win_count: number;
+  loss_count: number;
   percentage: number;
   color: string;
   logo_url?: string;
@@ -340,6 +340,7 @@ export class TrendsService {
 
       console.log('🎯 Using seasonId:', currentSeasonId, 'for week:', week || 'ALL');
 
+      // Obtener todos los picks de la semana y temporada
       let query = supabase
         .from('picks')
         .select(`
@@ -371,33 +372,29 @@ export class TrendsService {
         return { distribution: [], error: teamsError };
       }
 
-      // Contar picks, victorias y derrotas por equipo
+      // Calcular stats por equipo
       const teamStats = new Map<number, { pickCount: number; winCount: number; lossCount: number }>();
-      picks?.forEach(pick => {
-        const teamId = pick.selected_team_id;
-        const result = pick.result; // Suponiendo que result puede ser 'W', 'L' o 'T'
-
-        if (!teamStats.has(teamId)) {
-          teamStats.set(teamId, { pickCount: 0, winCount: 0, lossCount: 0 });
-        }
-
-        const stats = teamStats.get(teamId);
-        if (stats) {
+      if (picks) {
+        for (const pick of picks) {
+          const teamId = pick.selected_team_id;
+          const result = pick.result;
+          if (!teamStats.has(teamId)) {
+            teamStats.set(teamId, { pickCount: 0, winCount: 0, lossCount: 0 });
+          }
+          const stats = teamStats.get(teamId)!;
           stats.pickCount += 1;
+          // Solo contar win/loss si el resultado NO es 'pending'
           if (result === 'W' || result === 'T') {
             stats.winCount += 1;
           } else if (result === 'L') {
             stats.lossCount += 1;
-          } // Ignorar resultados "pending" u otros valores no definidos
+          }
         }
-      });
+      }
 
-      // Crear distribución
+      const totalPicks = Array.from(teamStats.values()).reduce((acc, t) => acc + t.pickCount, 0);
       const distribution: PickDistribution[] = [];
       let colorIndex = 0;
-
-      const totalPicks = picks?.length || 0; // Mover al inicio de la función para asegurar el alcance
-
       teamStats.forEach((stats, teamId) => {
         const team = teams?.find(t => t.id === teamId);
         if (team) {
@@ -406,8 +403,8 @@ export class TrendsService {
             team_name: team.name,
             team_abbreviation: team.abbreviation,
             pick_count: stats.pickCount,
-            win_count: stats.winCount, // Agregar win_count
-            loss_count: stats.lossCount, // Agregar loss_count
+            win_count: stats.winCount,
+            loss_count: stats.lossCount,
             percentage: totalPicks > 0 ? (stats.pickCount / totalPicks) * 100 : 0,
             color: TrendsService.CHART_COLORS[colorIndex % TrendsService.CHART_COLORS.length],
             logo_url: team.logo_url || `/assets/logos/${team.abbreviation?.toLowerCase()}_logo.png`
