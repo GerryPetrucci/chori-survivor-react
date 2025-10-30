@@ -56,7 +56,7 @@ function TabPanel(props: TabPanelProps) {
       {...other}
     >
       {value === index && (
-        <Box sx={{ p: { xs: 2, sm: 3 }, width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
+        <Box sx={{ p: { xs: 2, sm: 3 } }}>
           {children}
         </Box>
       )}
@@ -201,13 +201,13 @@ const Trends: React.FC = () => {
   }
 
   return (
-    <Box sx={{ width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
+    <Box>
       {/* Header con gradiente */}
       <Box
         sx={{
           background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
           borderRadius: 3,
-          p: { xs: 2, sm: 3 },
+          p: 3,
           mb: 3,
           display: 'flex',
           flexDirection: 'column',
@@ -226,7 +226,7 @@ const Trends: React.FC = () => {
       </Box>
 
       {/* Contenedor principal con Tabs */}
-      <Paper sx={{ mb: 3, width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
+      <Paper sx={{ p: 3, mt: 3 }}>
         {/* Controles superiores */}
         <Box sx={{ p: { xs: 1, sm: 2 }, display: 'flex', justifyContent: 'flex-end', borderBottom: 1, borderColor: 'divider' }}>
           <FormControl sx={{ minWidth: { xs: 120, sm: 150, md: 200 } }} size="small">
@@ -275,7 +275,7 @@ const Trends: React.FC = () => {
           <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
             Equipos Más Populares
           </Typography>
-          <TableContainer sx={{ overflowX: 'auto', width: '100%' }}>
+          <TableContainer>
             <Table size="small" sx={{ minWidth: { xs: 300, sm: 650 } }}>
               <TableHead>
                 <TableRow>
@@ -342,42 +342,38 @@ const Trends: React.FC = () => {
           {trendsData.selectedWeek ? `Semana ${trendsData.selectedWeek}` : 'Todas las Semanas'}
         </Typography>
         {trendsData.pickDistribution && trendsData.pickDistribution.length > 0 ? (
-          <Box sx={{ width: '100%', overflowX: 'auto' }}>
-            <Box sx={{ minWidth: 300, width: '100%' }}>
-              <ResponsiveContainer width="100%" height={400}>
-                <BarChart data={trendsData.pickDistribution.map(team => ({
-                  ...team,
-                  // Preferir el loss_count calculado en backend; si no existe, usar fallback solo cuando win_count esté definido
-                  loss_count: team.loss_count !== undefined ? team.loss_count : (team.win_count !== undefined ? team.pick_count - team.win_count : undefined)
-                }))}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="team_abbreviation" style={{ fontSize: '12px' }} />
-                  <YAxis style={{ fontSize: '12px' }} />
-                  <Tooltip />
-                  <Legend wrapperStyle={{ fontSize: '14px' }} />
+          <ResponsiveContainer width="100%" height={400}>
+            <BarChart data={trendsData.pickDistribution.map(team => ({
+              ...team,
+              // Preferir el loss_count calculado en backend; si no existe, usar fallback solo cuando win_count esté definido
+              loss_count: team.loss_count !== undefined ? team.loss_count : (team.win_count !== undefined ? team.pick_count - team.win_count : undefined)
+            }))}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="team_abbreviation" style={{ fontSize: '12px' }} />
+              <YAxis style={{ fontSize: '12px' }} />
+              <Tooltip />
+              <Legend wrapperStyle={{ fontSize: '14px' }} />
+              <Bar
+                dataKey="pick_count"
+                fill={chartColors[0]}
+                name="Total de Picks"
+              />
+              {trendsData.pickDistribution.some(team => team.win_count !== undefined) && (
+                <>
                   <Bar
-                    dataKey="pick_count"
-                    fill={chartColors[0]}
-                    name="Total de Picks"
+                    dataKey="win_count"
+                    fill={chartColors[1]}
+                    name="Picks Correctos"
                   />
-                  {trendsData.pickDistribution.some(team => team.win_count !== undefined) && (
-                    <>
-                      <Bar
-                        dataKey="win_count"
-                        fill={chartColors[1]}
-                        name="Picks Correctos"
-                      />
-                      <Bar
-                        dataKey="loss_count"
-                        fill={chartColors[2]}
-                        name="Picks Incorrectos"
-                      />
-                    </>
-                  )}
-                </BarChart>
-              </ResponsiveContainer>
-            </Box>
-          </Box>
+                  <Bar
+                    dataKey="loss_count"
+                    fill={chartColors[2]}
+                    name="Picks Incorrectos"
+                  />
+                </>
+              )}
+            </BarChart>
+          </ResponsiveContainer>
         ) : (
           <Alert severity="info">
             No hay datos de distribución de picks para {trendsData.selectedWeek ? `la semana ${trendsData.selectedWeek}` : 'las semanas seleccionadas'}
@@ -389,40 +385,36 @@ const Trends: React.FC = () => {
         <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
           Tendencias de Actividad Semanal
         </Typography>
-        <Box sx={{ width: '100%', overflowX: 'auto' }}>
-          <Box sx={{ minWidth: 300, width: '100%' }}>
-            <ResponsiveContainer width="100%" height={400}>
-              <AreaChart data={trendsData.weeklyTrends}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="week" style={{ fontSize: '12px' }} />
-                <YAxis style={{ fontSize: '12px' }} />
-                <Tooltip />
-                <Legend wrapperStyle={{ fontSize: '14px' }} />
-                <Area
-                  type="monotone"
-                  dataKey="pick_count"
-                  stroke={chartColors[0]} // Usar el primer color aleatorio
-                  fill={chartColors[0]}
-                  name="Total de Picks"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="win_count"
-                  stroke={chartColors[1]} // Usar el segundo color aleatorio
-                  fill={chartColors[1]}
-                  name="Picks Correctos"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </Box>
-        </Box>
+        <ResponsiveContainer width="100%" height={400}>
+          <AreaChart data={trendsData.weeklyTrends}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="week" style={{ fontSize: '12px' }} />
+            <YAxis style={{ fontSize: '12px' }} />
+            <Tooltip />
+            <Legend wrapperStyle={{ fontSize: '14px' }} />
+            <Area
+              type="monotone"
+              dataKey="pick_count"
+              stroke={chartColors[0]} // Usar el primer color aleatorio
+              fill={chartColors[0]}
+              name="Total de Picks"
+            />
+            <Area
+              type="monotone"
+              dataKey="win_count"
+              stroke={chartColors[1]} // Usar el segundo color aleatorio
+              fill={chartColors[1]}
+              name="Picks Correctos"
+            />
+          </AreaChart>
+        </ResponsiveContainer>
       </TabPanel>
 
       <TabPanel value={tabValue} index={3}>
         <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
           Análisis de Riesgo por Equipos
         </Typography>
-        <TableContainer sx={{ overflowX: 'auto', width: '100%' }}>
+        <TableContainer>
           <Table size="small" sx={{ minWidth: { xs: 300, sm: 650 } }}>
             <TableHead>
               <TableRow>
