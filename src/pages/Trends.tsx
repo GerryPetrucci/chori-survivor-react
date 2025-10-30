@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box,
-  Card,
-  CardContent,
   Typography,
   Alert,
   CircularProgress,
@@ -19,7 +17,8 @@ import {
   FormControl,
   InputLabel,
   Select,
-  MenuItem
+  MenuItem,
+  Paper
 } from '@mui/material';
 import type { SelectChangeEvent } from '@mui/material';
 import {
@@ -57,7 +56,7 @@ function TabPanel(props: TabPanelProps) {
       {...other}
     >
       {value === index && (
-        <Box sx={{ p: 3 }}>
+        <Box sx={{ p: { xs: 2, sm: 3 }, width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
           {children}
         </Box>
       )}
@@ -202,287 +201,293 @@ const Trends: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" sx={{ display: 'flex', alignItems: 'center' }}>
-          <InsightsIcon sx={{ mr: 2 }} />
+    <Box sx={{ width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
+      {/* Header con gradiente */}
+      <Box
+        sx={{
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          borderRadius: 3,
+          p: { xs: 2, sm: 3 },
+          mb: 3,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          color: 'white',
+          textAlign: 'center'
+        }}
+      >
+        <Typography variant="h4" gutterBottom fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' }, flexWrap: 'wrap', justifyContent: 'center' }}>
+          <InsightsIcon sx={{ fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' } }} />
           Análisis de Tendencias
         </Typography>
-        
-        <FormControl sx={{ minWidth: 200 }}>
-          <InputLabel id="week-select-label">Semana</InputLabel>
-          <Select
-            labelId="week-select-label"
-            id="week-select"
-            value={selectedWeek}
-            label="Semana"
-            onChange={handleWeekChange}
-          >
-            <MenuItem value="all">Todas las Semanas</MenuItem>
-            {/* Mostrar semanas ordenadas ascendentemente */}
-            {[...availableWeeks].sort((a, b) => a - b).map((week) => (
-              <MenuItem key={week} value={week.toString()}>
-                Semana {week}
-              </MenuItem>
-            ))}
-            {/* Agregar semana 7 como opción por defecto si no está en available weeks */}
-            {!availableWeeks.includes(7) && (
-              <MenuItem value="7">Semana 7</MenuItem>
-            )}
-          </Select>
-        </FormControl>
+        <Typography variant="subtitle1" sx={{ opacity: 0.9, fontSize: { xs: '0.875rem', sm: '1rem' } }}>
+          Descubre patrones y estadísticas del survivor pool
+        </Typography>
       </Box>
 
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+      {/* Contenedor principal con Tabs */}
+      <Paper sx={{ mb: 3, width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
+        {/* Controles superiores */}
+        <Box sx={{ p: { xs: 1, sm: 2 }, display: 'flex', justifyContent: 'flex-end', borderBottom: 1, borderColor: 'divider' }}>
+          <FormControl sx={{ minWidth: { xs: 120, sm: 150, md: 200 } }} size="small">
+            <InputLabel id="week-select-label">Semana</InputLabel>
+            <Select
+              labelId="week-select-label"
+              id="week-select"
+              value={selectedWeek}
+              label="Semana"
+              onChange={handleWeekChange}
+            >
+              <MenuItem value="all">Todas las Semanas</MenuItem>
+              {/* Mostrar semanas ordenadas ascendentemente */}
+              {[...availableWeeks].sort((a, b) => a - b).map((week) => (
+                <MenuItem key={week} value={week.toString()}>
+                  Semana {week}
+                </MenuItem>
+              ))}
+              {/* Agregar semana 7 como opción por defecto si no está en available weeks */}
+              {!availableWeeks.includes(7) && (
+                <MenuItem value="7">Semana 7</MenuItem>
+              )}
+            </Select>
+          </FormControl>
+        </Box>
+
+        {/* Tabs de navegación */}
         <Tabs 
           value={tabValue} 
           onChange={handleTabChange} 
-          aria-label="trends tabs"
+          indicatorColor="primary"
+          textColor="primary"
           variant="scrollable"
           scrollButtons="auto"
           allowScrollButtonsMobile
+          sx={{ borderBottom: 1, borderColor: 'divider', minHeight: { xs: 40, sm: 48 } }}
         >
-          <Tab label="Estadísticas de Equipos" {...a11yProps(0)} />
-          <Tab label="Distribución de Picks" {...a11yProps(1)} />
-          <Tab label="Tendencias Semanales" {...a11yProps(2)} />
-          <Tab label="Análisis de Riesgo" {...a11yProps(3)} />
+          <Tab label="Estadísticas de Equipos" {...a11yProps(0)} sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, minWidth: { xs: 80, sm: 120 }, px: { xs: 1, sm: 2 } }} />
+          <Tab label="Distribución de Picks" {...a11yProps(1)} sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, minWidth: { xs: 80, sm: 120 }, px: { xs: 1, sm: 2 } }} />
+          <Tab label="Tendencias Semanales" {...a11yProps(2)} sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, minWidth: { xs: 80, sm: 120 }, px: { xs: 1, sm: 2 } }} />
+          <Tab label="Análisis de Riesgo" {...a11yProps(3)} sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, minWidth: { xs: 80, sm: 120 }, px: { xs: 1, sm: 2 } }} />
         </Tabs>
-      </Box>
 
-      <TabPanel value={tabValue} index={0}>
-        <Box>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Equipos Más Populares
-              </Typography>
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Equipo</TableCell>
-                      <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>Picks</TableCell>
-                      <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' } }}>Récord</TableCell>
-                      <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' } }}>Popularidad</TableCell>
-                      <TableCell align="right">Éxito</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {trendsData.teamStats.slice(0, 10).map((team) => (
-                      <TableRow key={team.team_id}>
-                        <TableCell>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1 } }}>
-                            <img
-                              src={getTeamLogo(team.logo_url)} // Usar solo logo_url
-                              alt={team.team_name}
-                              style={{ width: 24, height: 24, borderRadius: '50%' }}
-                            />
-                            <Typography variant="body2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                              {team.team_name}
-                            </Typography>
-                          </Box>
-                        </TableCell>
-                        <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{team.pick_count}</TableCell>
-                        <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' } }}>
-                          <Chip 
-                            label={`${team.win_count}-${team.loss_count}-${team.tie_count}`}
-                            size="small"
-                            color={team.win_count > team.loss_count ? 'success' : team.win_count === team.loss_count ? 'warning' : 'error'}
-                          />
-                        </TableCell>
-                        <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' } }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-                            <LinearProgress
-                              variant="determinate"
-                              value={(team.pick_count / Math.max(...trendsData.teamStats.map(t => t.pick_count))) * 100}
-                              sx={{ width: 60, mr: 1 }}
-                            />
-                            {((team.pick_count / Math.max(...trendsData.teamStats.map(t => t.pick_count))) * 100).toFixed(1)}%
-                          </Box>
-                        </TableCell>
-                        <TableCell align="right">
-                          <Chip
-                            label={`${team.win_rate.toFixed(1)}%`}
-                            color={team.win_rate >= 70 ? 'success' : team.win_rate >= 50 ? 'warning' : 'error'}
-                            size="small"
-                            sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </CardContent>
-          </Card>
-        </Box>
-      </TabPanel>
-
-      <TabPanel value={tabValue} index={1}>
-        <Box>
-          <Card>
-            <CardContent sx={{ px: { xs: 1, sm: 2, md: 3 } }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexDirection: { xs: 'column', sm: 'row' }, gap: { xs: 1, sm: 0 } }}>
-                <Typography variant="h6">
-                  Distribución de Picks por Equipo
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {trendsData.selectedWeek ? `Semana ${trendsData.selectedWeek}` : 'Todas las Semanas'}
-                </Typography>
-              </Box>
-              {trendsData.pickDistribution && trendsData.pickDistribution.length > 0 ? (
-                <ResponsiveContainer width="100%" height={400}>
-                  <BarChart data={trendsData.pickDistribution.map(team => ({
-                    ...team,
-                    // Preferir el loss_count calculado en backend; si no existe, usar fallback solo cuando win_count esté definido
-                    loss_count: team.loss_count !== undefined ? team.loss_count : (team.win_count !== undefined ? team.pick_count - team.win_count : undefined)
-                  }))}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="team_abbreviation" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar
-                      dataKey="pick_count"
-                      fill={chartColors[0]}
-                      name="Total de Picks"
-                    />
-                    {trendsData.pickDistribution.some(team => team.win_count !== undefined) && (
-                      <>
-                        <Bar
-                          dataKey="win_count"
-                          fill={chartColors[1]}
-                          name="Picks Correctos"
+        {/* Contenido de las tabs */}
+        <TabPanel value={tabValue} index={0}>
+          <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
+            Equipos Más Populares
+          </Typography>
+          <TableContainer sx={{ overflowX: 'auto', width: '100%' }}>
+            <Table size="small" sx={{ minWidth: { xs: 300, sm: 650 } }}>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Equipo</TableCell>
+                  <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>Picks</TableCell>
+                  <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' } }}>Récord</TableCell>
+                  <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' } }}>Popularidad</TableCell>
+                  <TableCell align="right">Éxito</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {trendsData.teamStats.slice(0, 10).map((team) => (
+                  <TableRow key={team.team_id}>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1 } }}>
+                        <img
+                          src={getTeamLogo(team.logo_url)} // Usar solo logo_url
+                          alt={team.team_name}
+                          style={{ width: 24, height: 24, borderRadius: '50%' }}
                         />
-                        <Bar
-                          dataKey="loss_count"
-                          fill={chartColors[2]}
-                          name="Picks Incorrectos"
+                        <Typography variant="body2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                          {team.team_name}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{team.pick_count}</TableCell>
+                    <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' } }}>
+                      <Chip 
+                        label={`${team.win_count}-${team.loss_count}-${team.tie_count}`}
+                        size="small"
+                        color={team.win_count > team.loss_count ? 'success' : team.win_count === team.loss_count ? 'warning' : 'error'}
+                      />
+                    </TableCell>
+                    <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' } }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+                        <LinearProgress
+                          variant="determinate"
+                          value={(team.pick_count / Math.max(...trendsData.teamStats.map(t => t.pick_count))) * 100}
+                          sx={{ width: 60, mr: 1 }}
                         />
-                      </>
-                    )}
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <Alert severity="info">
-                  No hay datos de distribución de picks para {trendsData.selectedWeek ? `la semana ${trendsData.selectedWeek}` : 'las semanas seleccionadas'}
-                </Alert>
-              )}
-            </CardContent>
-          </Card>
-        </Box>
-      </TabPanel>
+                        {((team.pick_count / Math.max(...trendsData.teamStats.map(t => t.pick_count))) * 100).toFixed(1)}%
+                      </Box>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Chip
+                        label={`${team.win_rate.toFixed(1)}%`}
+                        color={team.win_rate >= 70 ? 'success' : team.win_rate >= 50 ? 'warning' : 'error'}
+                        size="small"
+                        sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </TabPanel>
 
-      <TabPanel value={tabValue} index={2}>
-        <Box>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Tendencias de Actividad Semanal
-              </Typography>
+            <TabPanel value={tabValue} index={1}>
+        <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
+          Distribución de Picks por Equipo
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+          {trendsData.selectedWeek ? `Semana ${trendsData.selectedWeek}` : 'Todas las Semanas'}
+        </Typography>
+        {trendsData.pickDistribution && trendsData.pickDistribution.length > 0 ? (
+          <Box sx={{ width: '100%', overflowX: 'auto' }}>
+            <Box sx={{ minWidth: 300, width: '100%' }}>
               <ResponsiveContainer width="100%" height={400}>
-                <AreaChart data={trendsData.weeklyTrends}>
+                <BarChart data={trendsData.pickDistribution.map(team => ({
+                  ...team,
+                  // Preferir el loss_count calculado en backend; si no existe, usar fallback solo cuando win_count esté definido
+                  loss_count: team.loss_count !== undefined ? team.loss_count : (team.win_count !== undefined ? team.pick_count - team.win_count : undefined)
+                }))}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="week" />
-                  <YAxis />
+                  <XAxis dataKey="team_abbreviation" style={{ fontSize: '12px' }} />
+                  <YAxis style={{ fontSize: '12px' }} />
                   <Tooltip />
-                  <Legend />
-                  <Area
-                    type="monotone"
+                  <Legend wrapperStyle={{ fontSize: '14px' }} />
+                  <Bar
                     dataKey="pick_count"
-                    stroke={chartColors[0]} // Usar el primer color aleatorio
                     fill={chartColors[0]}
                     name="Total de Picks"
                   />
-                  <Area
-                    type="monotone"
-                    dataKey="win_count"
-                    stroke={chartColors[1]} // Usar el segundo color aleatorio
-                    fill={chartColors[1]}
-                    name="Picks Correctos"
-                  />
-                </AreaChart>
+                  {trendsData.pickDistribution.some(team => team.win_count !== undefined) && (
+                    <>
+                      <Bar
+                        dataKey="win_count"
+                        fill={chartColors[1]}
+                        name="Picks Correctos"
+                      />
+                      <Bar
+                        dataKey="loss_count"
+                        fill={chartColors[2]}
+                        name="Picks Incorrectos"
+                      />
+                    </>
+                  )}
+                </BarChart>
               </ResponsiveContainer>
-            </CardContent>
-          </Card>
+            </Box>
+          </Box>
+        ) : (
+          <Alert severity="info">
+            No hay datos de distribución de picks para {trendsData.selectedWeek ? `la semana ${trendsData.selectedWeek}` : 'las semanas seleccionadas'}
+          </Alert>
+        )}
+      </TabPanel>
+
+      <TabPanel value={tabValue} index={2}>
+        <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
+          Tendencias de Actividad Semanal
+        </Typography>
+        <Box sx={{ width: '100%', overflowX: 'auto' }}>
+          <Box sx={{ minWidth: 300, width: '100%' }}>
+            <ResponsiveContainer width="100%" height={400}>
+              <AreaChart data={trendsData.weeklyTrends}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="week" style={{ fontSize: '12px' }} />
+                <YAxis style={{ fontSize: '12px' }} />
+                <Tooltip />
+                <Legend wrapperStyle={{ fontSize: '14px' }} />
+                <Area
+                  type="monotone"
+                  dataKey="pick_count"
+                  stroke={chartColors[0]} // Usar el primer color aleatorio
+                  fill={chartColors[0]}
+                  name="Total de Picks"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="win_count"
+                  stroke={chartColors[1]} // Usar el segundo color aleatorio
+                  fill={chartColors[1]}
+                  name="Picks Correctos"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </Box>
         </Box>
       </TabPanel>
 
       <TabPanel value={tabValue} index={3}>
-        <Box>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Análisis de Riesgo por Equipos
-              </Typography>
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Equipo</TableCell>
-                      <TableCell align="right">Éxito</TableCell>
-                      <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>Picks</TableCell>
-                      <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>Riesgo</TableCell>
+        <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
+          Análisis de Riesgo por Equipos
+        </Typography>
+        <TableContainer sx={{ overflowX: 'auto', width: '100%' }}>
+          <Table size="small" sx={{ minWidth: { xs: 300, sm: 650 } }}>
+            <TableHead>
+              <TableRow>
+                <TableCell>Equipo</TableCell>
+                <TableCell align="right">Éxito</TableCell>
+                <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>Picks</TableCell>
+                <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>Riesgo</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {trendsData.teamStats
+                .filter(team => team.pick_count >= 3)
+                .sort((a, b) => b.win_rate - a.win_rate)
+                .map((team) => {
+                  const riskLevel = team.win_rate >= 70 ? 'low' : team.win_rate >= 50 ? 'medium' : 'high';
+                  const riskColor = riskLevel === 'low' ? 'success' : riskLevel === 'medium' ? 'warning' : 'error';
+                  const riskIcon = riskLevel === 'low' ? <TrendingUpIcon fontSize="small" /> : riskLevel === 'medium' ? <InsightsIcon fontSize="small" /> : <WarningIcon fontSize="small" />;
+                  
+                  return (
+                    <TableRow key={team.team_id}>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1 } }}>
+                          <img
+                            src={getTeamLogo(team.logo_url)} // Usar solo logo_url
+                            alt={team.team_name}
+                            style={{ width: 24, height: 24, borderRadius: '50%' }}
+                          />
+                          <Box>
+                            <Typography variant="body2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                              {team.team_name}
+                            </Typography>
+                            <Box sx={{ display: { xs: 'flex', sm: 'none' }, alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+                              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                                {team.pick_count} picks
+                              </Typography>
+                              {riskIcon}
+                            </Box>
+                          </Box>
+                        </Box>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Chip
+                          label={`${team.win_rate.toFixed(1)}%`}
+                          color={riskColor}
+                          size="small"
+                          sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}
+                        />
+                      </TableCell>
+                      <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{team.pick_count}</TableCell>
+                      <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+                          {riskIcon}
+                          <Typography variant="body2" sx={{ ml: 1, textTransform: 'capitalize' }}>
+                            {riskLevel === 'low' ? 'Bajo' : riskLevel === 'medium' ? 'Medio' : 'Alto'}
+                          </Typography>
+                        </Box>
+                      </TableCell>
                     </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {trendsData.teamStats
-                      .filter(team => team.pick_count >= 3)
-                      .sort((a, b) => b.win_rate - a.win_rate)
-                      .map((team) => {
-                        const riskLevel = team.win_rate >= 70 ? 'low' : team.win_rate >= 50 ? 'medium' : 'high';
-                        const riskColor = riskLevel === 'low' ? 'success' : riskLevel === 'medium' ? 'warning' : 'error';
-                        const riskIcon = riskLevel === 'low' ? <TrendingUpIcon fontSize="small" /> : riskLevel === 'medium' ? <InsightsIcon fontSize="small" /> : <WarningIcon fontSize="small" />;
-                        
-                        return (
-                          <TableRow key={team.team_id}>
-                            <TableCell>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1 } }}>
-                                <img
-                                  src={getTeamLogo(team.logo_url)} // Usar solo logo_url
-                                  alt={team.team_name}
-                                  style={{ width: 24, height: 24, borderRadius: '50%' }}
-                                />
-                                <Box>
-                                  <Typography variant="body2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                                    {team.team_name}
-                                  </Typography>
-                                  <Box sx={{ display: { xs: 'flex', sm: 'none' }, alignItems: 'center', gap: 0.5, mt: 0.5 }}>
-                                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                                      {team.pick_count} picks
-                                    </Typography>
-                                    {riskIcon}
-                                  </Box>
-                                </Box>
-                              </Box>
-                            </TableCell>
-                            <TableCell align="right">
-                              <Chip
-                                label={`${team.win_rate.toFixed(1)}%`}
-                                color={riskColor}
-                                size="small"
-                                sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}
-                              />
-                            </TableCell>
-                            <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{team.pick_count}</TableCell>
-                            <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
-                              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-                                {riskIcon}
-                                <Typography variant="body2" sx={{ ml: 1, textTransform: 'capitalize' }}>
-                                  {riskLevel === 'low' ? 'Bajo' : riskLevel === 'medium' ? 'Medio' : 'Alto'}
-                                </Typography>
-                              </Box>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </CardContent>
-          </Card>
-        </Box>
+                  );
+                })}
+            </TableBody>
+          </Table>
+        </TableContainer>
       </TabPanel>
+      </Paper>
     </Box>
   );
 };

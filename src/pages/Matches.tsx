@@ -226,7 +226,7 @@ export default function MatchesPage() {
     } else if (match.status === 'in_progress' && match.home_score !== null && match.away_score !== null) {
       return `${match.home_score} - ${match.away_score}`;
     } else {
-      return 'vs';
+      return '–';
     }
   };
 
@@ -321,8 +321,8 @@ export default function MatchesPage() {
 
       <Paper sx={{ p: 3, mt: 3 }}>
         {/* Filtro de Semana */}
-        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <FormControl size="small" sx={{ minWidth: 180 }}>
+        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+          <FormControl size="small" sx={{ minWidth: { xs: 140, sm: 180 } }}>
             <InputLabel>Semana</InputLabel>
             <Select
               value={selectedWeek}
@@ -337,7 +337,7 @@ export default function MatchesPage() {
             </Select>
           </FormControl>
 
-          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+          <Typography variant="h6" sx={{ fontWeight: 'bold', fontSize: { xs: '1rem', sm: '1.25rem' } }}>
             Semana {selectedWeek} - {matches.length} partidos
           </Typography>
         </Box>
@@ -363,40 +363,42 @@ export default function MatchesPage() {
                 {matches.map((match) => (
                     <TableRow key={match.id} sx={{ '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.04)' } }}>
                       <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1.5 } }}>
-                        {/* Away Team */}
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1 } }}>
+                        {/* Away Team Logo */}
                         <Box
                           component="img"
                           src={getTeamLogo(match.away_team?.name || '', match.away_team?.city || '')}
                           alt={`${match.away_team?.city} ${match.away_team?.name}`}
                           sx={{
-                            width: { xs: 20, sm: 28 },
-                            height: { xs: 20, sm: 28 },
+                            width: { xs: 24, sm: 28 },
+                            height: { xs: 24, sm: 28 },
                             objectFit: 'contain',
                             borderRadius: 1,
                             border: '1px solid rgba(0,0,0,0.1)'
                           }}
                         />
-                        <Typography variant="body2" fontWeight="bold" sx={{ minWidth: { xs: 28, sm: 35 }, textAlign: 'center', fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
+                        {/* Away Team Abbreviation - oculto en xs */}
+                        <Typography variant="body2" fontWeight="bold" sx={{ minWidth: { xs: 0, sm: 35 }, textAlign: 'center', fontSize: { xs: '0.75rem', sm: '0.875rem' }, display: { xs: 'none', sm: 'block' } }}>
                           {match.away_team?.abbreviation || 'TBD'}
                         </Typography>
                         
                         {/* @ Separator */}
-                        <Typography variant="body2" color="text.secondary" fontWeight="bold" sx={{ mx: 0.5, display: { xs: 'none', sm: 'block' } }}>
+                        <Typography variant="body2" color="text.secondary" fontWeight="bold" sx={{ mx: { xs: 0.5, sm: 0.5 } }}>
                           @
                         </Typography>
                         
-                        <Typography variant="body2" fontWeight="bold" sx={{ minWidth: { xs: 28, sm: 35 }, textAlign: 'center', fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
+                        {/* Home Team Abbreviation - oculto en xs */}
+                        <Typography variant="body2" fontWeight="bold" sx={{ minWidth: { xs: 0, sm: 35 }, textAlign: 'center', fontSize: { xs: '0.75rem', sm: '0.875rem' }, display: { xs: 'none', sm: 'block' } }}>
                           {match.home_team?.abbreviation || 'TBD'}
                         </Typography>
-                        {/* Home Team */}
+                        {/* Home Team Logo */}
                         <Box
                           component="img"
                           src={getTeamLogo(match.home_team?.name || '', match.home_team?.city || '')}
                           alt={`${match.home_team?.city} ${match.home_team?.name}`}
                           sx={{
-                            width: { xs: 20, sm: 28 },
-                            height: { xs: 20, sm: 28 },
+                            width: { xs: 24, sm: 28 },
+                            height: { xs: 24, sm: 28 },
                             objectFit: 'contain',
                             borderRadius: 1,
                             border: '1px solid rgba(0,0,0,0.1)'
@@ -411,10 +413,10 @@ export default function MatchesPage() {
                     </TableCell>
                     <TableCell align="center">
                       <Box>
-                        <Typography variant="h6" fontWeight="bold" sx={{ fontSize: { xs: '0.875rem', sm: '1.25rem' } }}>
+                        <Typography variant="h6" fontWeight="bold" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
                           {getScoreDisplay(match)}
                         </Typography>
-                        <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'block', md: 'none' }, fontSize: '0.65rem' }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'block', md: 'none' }, fontSize: '0.7rem' }}>
                           {new Date(match.game_date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
                         </Typography>
                       </Box>
