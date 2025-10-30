@@ -21,6 +21,7 @@ import DebugAuthPage from '../pages/DebugAuth.tsx';
 
 // Admin Pages
 import AdminDashboard from '../pages/admin/AdminDashboard.tsx';
+import ShowPicks from '../pages/admin/ShowPicks.tsx';
 
 export default function AppRouter() {
   const { isAuthenticated, user } = useAuth();
@@ -41,22 +42,27 @@ export default function AppRouter() {
                                    window.location.hash.includes('refresh_token') ||
                                    window.location.search.includes('access_token');
               
-              return isAuthenticated && !isRecoveryMode ? 
-                <Navigate to="/dashboard" replace /> : 
-                <LoginPage />;
+              if (isAuthenticated && !isRecoveryMode) {
+                return <Navigate to={user?.user_type === 'admin' ? '/admin' : '/dashboard'} replace />;
+              }
+              return <LoginPage />;
             })()
           }
         />
         <Route 
           path="/activate-token" 
           element={
-            isAuthenticated ? <Navigate to="/dashboard" replace /> : <ActivateTokenPage />
+            isAuthenticated ? 
+              <Navigate to={user?.user_type === 'admin' ? '/admin' : '/dashboard'} replace /> : 
+              <ActivateTokenPage />
           } 
         />
         <Route 
           path="/request-password-reset" 
           element={
-            isAuthenticated ? <Navigate to="/dashboard" replace /> : <RequestPasswordResetPage />
+            isAuthenticated ? 
+              <Navigate to={user?.user_type === 'admin' ? '/admin' : '/dashboard'} replace /> : 
+              <RequestPasswordResetPage />
           } 
         />
         <Route 
@@ -67,8 +73,15 @@ export default function AppRouter() {
         {/* Protected Routes */}
         <Route path="/" element={<ProtectedRoute />}>
           <Route path="/" element={<Layout />}>
-            {/* Default redirect to dashboard */}
-            <Route index element={<Navigate to="/dashboard" replace />} />
+            {/* Default redirect based on user type */}
+            <Route 
+              index 
+              element={
+                user?.user_type === 'admin' ? 
+                  <Navigate to="/admin" replace /> : 
+                  <Navigate to="/dashboard" replace />
+              } 
+            />
             
             {/* User Routes */}
             <Route path="dashboard" element={<DashboardPage />} />
@@ -84,13 +97,19 @@ export default function AppRouter() {
             {user?.user_type === 'admin' && (
               <>
                 <Route path="admin" element={<AdminDashboard />} />
+                <Route path="admin/show-picks" element={<ShowPicks />} />
               </>
             )}
           </Route>
         </Route>
         
         {/* Catch all route */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route 
+          path="*" 
+          element={
+            <Navigate to={user?.user_type === 'admin' ? '/admin' : '/dashboard'} replace />
+          } 
+        />
       </Routes>
     </Router>
   );

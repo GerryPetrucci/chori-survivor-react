@@ -7,6 +7,7 @@ export interface User {
   full_name?: string;
   user_type: 'user' | 'admin';
   created_at: string;
+  avatar_url?: string;
 }
 
 export interface Team {

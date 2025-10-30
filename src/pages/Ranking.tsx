@@ -33,6 +33,7 @@ interface RankingEntry {
   points: number;
   total_wins: number;
   isUserEntry?: boolean;
+  avatar_url?: string;
 }
 
 export default function RankingPage() {
@@ -141,7 +142,8 @@ export default function RankingPage() {
             return {
               ...entry,
               username: userProfile?.username || `Usuario ${entry.user_id.slice(-4)}`,
-              full_name: userProfile?.full_name || userProfile?.username || `Usuario ${entry.user_id.slice(-4)}`
+              full_name: userProfile?.full_name || userProfile?.username || `Usuario ${entry.user_id.slice(-4)}`,
+              avatar_url: userProfile?.avatar_url
             };
           } catch {
             // Si no se puede obtener el perfil, usar datos por defecto
@@ -181,7 +183,8 @@ export default function RankingPage() {
           status,
           points: realPoints, // Usar puntos reales
           total_wins: entry.total_wins || 0,
-          isUserEntry: user ? entry.user_id === user.id : false
+          isUserEntry: user ? entry.user_id === user.id : false,
+          avatar_url: entry.avatar_url
         });
       }
 
@@ -405,8 +408,11 @@ export default function RankingPage() {
                   </TableCell>
                   <TableCell>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 } }}>
-                      <Avatar sx={{ width: { xs: 24, sm: 32 }, height: { xs: 24, sm: 32 }, bgcolor: 'primary.main', fontSize: { xs: '0.75rem', sm: '1rem' } }}>
-                        {entry.username.charAt(0).toUpperCase()}
+                      <Avatar 
+                        src={entry.avatar_url || undefined}
+                        sx={{ width: { xs: 24, sm: 32 }, height: { xs: 24, sm: 32 }, bgcolor: 'primary.main', fontSize: { xs: '0.75rem', sm: '1rem' } }}
+                      >
+                        {!entry.avatar_url && entry.username.charAt(0).toUpperCase()}
                       </Avatar>
                       <Box>
                         <Typography variant="body2" fontWeight="bold" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>

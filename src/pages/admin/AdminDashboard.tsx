@@ -147,17 +147,19 @@ export default function AdminDashboard() {
         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
         color: 'white', 
         p: 3, 
-        borderRadius: 2, 
+        borderRadius: 3, 
         mb: 3,
         display: 'flex', 
+        flexDirection: { xs: 'column', sm: 'row' },
         justifyContent: 'space-between', 
-        alignItems: 'center'
+        alignItems: { xs: 'flex-start', sm: 'center' },
+        gap: 2
       }}>
         <Box>
-          <Typography variant="h4" gutterBottom fontWeight="bold" sx={{ mb: 1 }}>
+          <Typography variant="h4" gutterBottom fontWeight="bold" sx={{ mb: 1, fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' } }}>
             🛠️ Panel de Administración
           </Typography>
-          <Typography variant="subtitle1" sx={{ opacity: 0.9 }}>
+          <Typography variant="subtitle1" sx={{ opacity: 0.9, fontSize: { xs: '0.875rem', sm: '1rem' } }}>
             Semana {stats?.currentWeek} - Temporada 2025 NFL
           </Typography>
         </Box>
@@ -170,6 +172,7 @@ export default function AdminDashboard() {
             bgcolor: 'rgba(255,255,255,0.2)',
             color: 'white',
             border: '1px solid rgba(255,255,255,0.3)',
+            alignSelf: { xs: 'stretch', sm: 'auto' },
             '&:hover': { 
               bgcolor: 'rgba(255,255,255,0.3)',
               border: '1px solid rgba(255,255,255,0.5)'
@@ -181,17 +184,17 @@ export default function AdminDashboard() {
       </Box>
 
       {/* KPIs Grid */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 3, mb: 4 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 3, mb: 4 }}>
         <Card sx={{ bgcolor: 'info.main', color: 'info.contrastText' }}>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <PeopleIcon sx={{ mr: 1 }} />
-              <Typography variant="h6">Total Usuarios</Typography>
+              <PeopleIcon sx={{ mr: 1, fontSize: { xs: '1.5rem', sm: '1.75rem' } }} />
+              <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>Total Usuarios</Typography>
             </Box>
-            <Typography variant="h3" fontWeight="bold">
+            <Typography variant="h3" fontWeight="bold" sx={{ fontSize: { xs: '2rem', sm: '2.5rem', md: '3rem' } }}>
               {stats?.totalUsers}
             </Typography>
-            <Typography variant="body2" sx={{ opacity: 0.8 }}>
+            <Typography variant="body2" sx={{ opacity: 0.8, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
               Registrados en el sistema
             </Typography>
           </CardContent>
@@ -200,13 +203,13 @@ export default function AdminDashboard() {
         <Card sx={{ bgcolor: 'success.main', color: 'success.contrastText' }}>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <CheckCircleIcon sx={{ mr: 1 }} />
-              <Typography variant="h6">Entradas Vivas</Typography>
+              <CheckCircleIcon sx={{ mr: 1, fontSize: { xs: '1.5rem', sm: '1.75rem' } }} />
+              <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>Entradas Vivas</Typography>
             </Box>
-            <Typography variant="h3" fontWeight="bold">
+            <Typography variant="h3" fontWeight="bold" sx={{ fontSize: { xs: '2rem', sm: '2.5rem', md: '3rem' } }}>
               {stats?.activeEntries}
             </Typography>
-            <Typography variant="body2" sx={{ opacity: 0.8 }}>
+            <Typography variant="body2" sx={{ opacity: 0.8, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
               Aún en competencia
             </Typography>
           </CardContent>
@@ -215,13 +218,13 @@ export default function AdminDashboard() {
         <Card sx={{ bgcolor: 'error.main', color: 'error.contrastText' }}>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <PersonOffIcon sx={{ mr: 1 }} />
-              <Typography variant="h6">Entradas Eliminadas</Typography>
+              <PersonOffIcon sx={{ mr: 1, fontSize: { xs: '1.5rem', sm: '1.75rem' } }} />
+              <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>Entradas Eliminadas</Typography>
             </Box>
-            <Typography variant="h3" fontWeight="bold">
+            <Typography variant="h3" fontWeight="bold" sx={{ fontSize: { xs: '2rem', sm: '2.5rem', md: '3rem' } }}>
               {stats?.eliminatedEntries}
             </Typography>
-            <Typography variant="body2" sx={{ opacity: 0.8 }}>
+            <Typography variant="body2" sx={{ opacity: 0.8, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
               Fuera de competencia
             </Typography>
           </CardContent>
@@ -230,13 +233,13 @@ export default function AdminDashboard() {
         <Card sx={{ bgcolor: 'warning.main', color: 'warning.contrastText' }}>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <WarningIcon sx={{ mr: 1 }} />
-              <Typography variant="h6">Sin Picks</Typography>
+              <WarningIcon sx={{ mr: 1, fontSize: { xs: '1.5rem', sm: '1.75rem' } }} />
+              <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>Sin Picks</Typography>
             </Box>
-            <Typography variant="h3" fontWeight="bold">
+            <Typography variant="h3" fontWeight="bold" sx={{ fontSize: { xs: '2rem', sm: '2.5rem', md: '3rem' } }}>
               {stats?.usersWithoutPicks}
             </Typography>
-            <Typography variant="body2" sx={{ opacity: 0.8 }}>
+            <Typography variant="body2" sx={{ opacity: 0.8, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
               Semana {stats?.currentWeek}
             </Typography>
           </CardContent>
@@ -244,28 +247,30 @@ export default function AdminDashboard() {
       </Box>
 
       {/* Segunda fila de KPIs */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 3, mb: 4 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' }, gap: 3, mb: 4 }}>
         <Card>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <SportsIcon sx={{ mr: 1, color: 'info.main' }} />
-              <Typography variant="h6">Partidos Totales</Typography>
+              <SportsIcon sx={{ mr: 1, color: 'info.main', fontSize: { xs: '1.5rem', sm: '1.75rem' } }} />
+              <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>Partidos Totales</Typography>
             </Box>
-            <Typography variant="h4" fontWeight="bold" color="info.main">
+            <Typography variant="h4" fontWeight="bold" color="info.main" sx={{ fontSize: { xs: '1.75rem', sm: '2rem', md: '2.125rem' } }}>
               {stats?.totalMatches}
             </Typography>
-            <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+            <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
               <Chip 
                 size="small" 
                 label={`${stats?.completedMatches} Completados`}
                 color="success"
                 variant="outlined"
+                sx={{ fontSize: { xs: '0.7rem', sm: '0.8125rem' } }}
               />
               <Chip 
                 size="small" 
                 label={`${stats?.pendingMatches} Pendientes`}
                 color="warning"
                 variant="outlined"
+                sx={{ fontSize: { xs: '0.7rem', sm: '0.8125rem' } }}
               />
             </Box>
           </CardContent>
@@ -274,13 +279,13 @@ export default function AdminDashboard() {
         <Card>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <ScheduleIcon sx={{ mr: 1, color: 'primary.main' }} />
-              <Typography variant="h6">Semana Actual</Typography>
+              <ScheduleIcon sx={{ mr: 1, color: 'primary.main', fontSize: { xs: '1.5rem', sm: '1.75rem' } }} />
+              <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>Semana Actual</Typography>
             </Box>
-            <Typography variant="h4" fontWeight="bold" color="primary.main">
+            <Typography variant="h4" fontWeight="bold" color="primary.main" sx={{ fontSize: { xs: '1.75rem', sm: '2rem', md: '2.125rem' } }}>
               {stats?.currentWeek}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
               de 18 semanas totales
             </Typography>
           </CardContent>
@@ -289,13 +294,13 @@ export default function AdminDashboard() {
         <Card>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <TrendingUpIcon sx={{ mr: 1, color: getSurvivalColor() }} />
-              <Typography variant="h6">Tasa de Supervivencia</Typography>
+              <TrendingUpIcon sx={{ mr: 1, color: getSurvivalColor(), fontSize: { xs: '1.5rem', sm: '1.75rem' } }} />
+              <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>Tasa de Supervivencia</Typography>
             </Box>
-            <Typography variant="h4" fontWeight="bold" color={getSurvivalColor()}>
+            <Typography variant="h4" fontWeight="bold" color={getSurvivalColor()} sx={{ fontSize: { xs: '1.75rem', sm: '2rem', md: '2.125rem' } }}>
               {survivalRate}%
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
               {stats?.activeEntries} de {stats && (stats.activeEntries + stats.eliminatedEntries)} entradas vivas
             </Typography>
           </CardContent>

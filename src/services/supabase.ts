@@ -869,6 +869,28 @@ export const tokensService = {
       .select()
       .single();
 
+    // Registrar actividad del admin
+    if (data && !error) {
+      try {
+        await supabase
+          .from('user_activities')
+          .insert({
+            user_id: user.id,
+            activity_type: 'admin_action',
+            activity_message: `Generó token de activación para ${entriesCount} entrada${entriesCount > 1 ? 's' : ''}${idCompra ? ` (ID: ${idCompra})` : ''}`,
+            metadata: {
+              token_id: data.id,
+              entries_count: entriesCount,
+              id_compra: idCompra,
+              expires_at: expiresAt.toISOString()
+            }
+          });
+      } catch (activityError) {
+        console.error('Error logging admin activity:', activityError);
+        // No fallar la operación principal si falla el logging
+      }
+    }
+
     return { data, error, token };
   },
 
@@ -1239,6 +1261,87 @@ export const statsService = {
 };
 
 // =====================================================
+// STORAGE SERVICE - Manejo de archivos
+// =====================================================
+
+export const storageService = {
+  // Subir avatar de usuario
+  uploadAvatar: async (userId: string, file: File) => {
+    try {
+      // Validar tipo de archivo
+      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+      if (!validTypes.includes(file.type)) {
+        return { data: null, error: 'Tipo de archivo no válido. Usa JPG, PNG, GIF o WEBP.' };
+      }
+
+      // Validar tamaño (máximo 2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        return { data: null, error: 'La imagen es muy grande. Máximo 2MB.' };
+      }
+
+      // Generar nombre único para el archivo
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${userId}.${fileExt}`;
+
+      // Eliminar archivo anterior si existe (mismo nombre base)
+      try {
+        await supabase.storage.from('profile_avatar').remove([fileName]);
+      } catch (e) {
+        // Ignorar error si no existe
+      }
+
+      // Subir archivo con upsert
+      const { error: uploadError } = await supabase.storage
+        .from('profile_avatar')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: true
+        });
+
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        return { data: null, error: `Error al subir: ${uploadError.message}` };
+      }
+
+      // Obtener URL pública
+      const { data: urlData } = supabase.storage
+        .from('profile_avatar')
+        .getPublicUrl(fileName);
+
+      return { data: { path: fileName, url: urlData.publicUrl }, error: null };
+    } catch (error: any) {
+      console.error('Storage error:', error);
+      return { data: null, error: error.message || 'Error al subir la imagen' };
+    }
+  },
+
+  // Eliminar avatar anterior
+  deleteAvatar: async (avatarUrl: string) => {
+    try {
+      // Solo eliminar si es una ruta del storage
+      if (!avatarUrl || !avatarUrl.includes('profile_avatar')) {
+        return { error: null };
+      }
+
+      // Extraer nombre del archivo de la URL
+      const parts = avatarUrl.split('/');
+      const fileName = parts[parts.length - 1];
+      
+      if (!fileName) return { error: null };
+
+      const { error } = await supabase.storage
+        .from('profile_avatar')
+        .remove([fileName]);
+
+      return { error };
+    } catch (error: any) {
+      // No es crítico si falla, continuar
+      return { error: null };
+    }
+  }
+};
+
+// =====================================================
 // UTILIDADES
 // =====================================================
 
@@ -1270,6 +1373,7 @@ export const supabaseServices = {
   userProfiles: userProfilesService,
   notifications: notificationsService,
   stats: statsService,
+  storage: storageService,
   utils: utilsService,
 };
 

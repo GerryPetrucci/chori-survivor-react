@@ -323,6 +323,7 @@ export class TrendsService {
       
       // Obtener temporada activa si no se especifica
       let currentSeasonId = seasonId;
+      
       if (!currentSeasonId) {
         const { data: season } = await supabase
           .from('seasons')

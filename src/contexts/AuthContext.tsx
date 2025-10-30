@@ -99,6 +99,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               full_name: profile.full_name,
               user_type: profile.user_type as 'user' | 'admin',
               created_at: profile.created_at,
+              avatar_url: profile.avatar_url,
             };
             dispatch({ type: 'LOGIN_SUCCESS', payload: user });
           } else {
@@ -132,6 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             full_name: profile.full_name,
             user_type: profile.user_type as 'user' | 'admin',
             created_at: profile.created_at,
+            avatar_url: profile.avatar_url,
           };
           dispatch({ type: 'LOGIN_SUCCESS', payload: user });
         } else {

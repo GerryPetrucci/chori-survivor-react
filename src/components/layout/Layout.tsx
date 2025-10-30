@@ -47,10 +47,18 @@ const menuItems = [
   { text: 'Historial', path: '/history', icon: <HistoryIcon /> },
 ];
 
+const adminMenuItems = [
+  { text: 'Partidos', path: '/matches', icon: <CalendarIcon /> },
+  { text: 'Tendencias', path: '/trends', icon: <TrendingIcon /> },
+  { text: 'Ranking', path: '/ranking', icon: <LeaderboardIcon /> },
+  { text: 'Perfil', path: '/profile', icon: <PersonIcon /> },
+  { text: 'Reglas', path: '/rules', icon: <RulesIcon /> },
+  { text: 'Historial', path: '/history', icon: <HistoryIcon /> },
+];
+
 const adminItems = [
   { text: 'Admin Panel', path: '/admin', icon: <AdminIcon /> },
-  { text: 'Gestionar Partidos', path: '/admin/matches', icon: <SportsIcon /> },
-  { text: 'Gestionar Usuarios', path: '/admin/users', icon: <PersonIcon /> },
+  { text: 'Show Picks', path: '/admin/show-picks', icon: <SportsIcon /> },
 ];
 
 export default function Layout() {
@@ -132,7 +140,7 @@ export default function Layout() {
       </Toolbar>
       
       <List sx={{ px: 1, pt: 2 }}>
-        {menuItems.map((item) => (
+        {(user?.user_type === 'admin' ? adminMenuItems : menuItems).map((item) => (
           <ListItem key={item.text} disablePadding sx={{ mb: 0.5 }}>
             <ListItemButton
               onClick={() => handleNavigation(item.path)}
@@ -338,16 +346,19 @@ export default function Layout() {
                 }
               }}
             >
-              <Avatar sx={{ 
-                bgcolor: 'rgba(255,255,255,0.2)',
-                color: 'white',
-                fontWeight: 'bold',
-                border: '2px solid rgba(255,255,255,0.3)',
-                backdropFilter: 'blur(10px)',
-                width: { xs: 36, sm: 40 },
-                height: { xs: 36, sm: 40 }
-              }}>
-                {user?.username?.charAt(0).toUpperCase()}
+              <Avatar 
+                src={user?.avatar_url || undefined}
+                sx={{ 
+                  bgcolor: 'rgba(255,255,255,0.2)',
+                  color: 'white',
+                  fontWeight: 'bold',
+                  border: '2px solid rgba(255,255,255,0.3)',
+                  backdropFilter: 'blur(10px)',
+                  width: { xs: 36, sm: 40 },
+                  height: { xs: 36, sm: 40 }
+                }}
+              >
+                {!user?.avatar_url && user?.username?.charAt(0).toUpperCase()}
               </Avatar>
             </IconButton>
           </Box>

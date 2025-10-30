@@ -44,7 +44,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useState, useEffect } from 'react';
-import { statsService } from '../services/supabase';
+import { statsService, userProfilesService, storageService } from '../services/supabase';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -111,10 +111,9 @@ export default function ProfilePage() {
 
     fetchUserStats();
     
-    // Cargar avatar guardado o usar inicial del username
-    const savedAvatar = localStorage.getItem(`avatar_${user?.id}`);
-    if (savedAvatar) {
-      setSelectedAvatar(savedAvatar);
+    // Cargar avatar desde el usuario autenticado
+    if (user?.avatar_url) {
+      setSelectedAvatar(user.avatar_url);
     } else {
       setSelectedAvatar(user?.username?.charAt(0).toUpperCase() || '👤');
     }
@@ -128,25 +127,67 @@ export default function ProfilePage() {
     setPreferences(prev => ({ ...prev, [key]: value }));
   };
 
-  const handleAvatarSelect = (avatar: string) => {
+  const handleAvatarSelect = async (avatar: string) => {
     setSelectedAvatar(avatar);
-    // Guardar en localStorage por ahora (después se puede mover a Supabase)
-    localStorage.setItem(`avatar_${user?.id}`, avatar);
+    
+    // Guardar emoji/predefinido directamente en la base de datos
+    if (user?.id) {
+      try {
+        const { error } = await userProfilesService.updateProfile(user.id, {
+          avatar_url: avatar
+        });
+        
+        if (error) {
+          console.error('Error updating avatar:', error);
+        }
+      } catch (err) {
+        console.error('Error saving avatar:', err);
+      }
+    }
+    
     setAvatarDialogOpen(false);
   };
 
-  const handleCustomAvatarUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCustomAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        setCustomAvatarUrl(result);
-        setSelectedAvatar(result);
-        localStorage.setItem(`avatar_${user?.id}`, result);
-        setAvatarDialogOpen(false);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    try {
+      if (!user?.id) return;
+
+      // Subir imagen a Supabase Storage
+      const { data: uploadData, error: uploadError } = await storageService.uploadAvatar(user.id, file);
+      
+      if (uploadError) {
+        alert(uploadError);
+        return;
+      }
+
+      if (!uploadData) return;
+
+      // Eliminar avatar anterior si existe y es del storage
+      if (user.avatar_url && user.avatar_url.includes('profile_avatar')) {
+        await storageService.deleteAvatar(user.avatar_url);
+      }
+
+      // Guardar URL en la base de datos
+      const { error: updateError } = await userProfilesService.updateProfile(user.id, {
+        avatar_url: uploadData.url
+      });
+
+      if (updateError) {
+        console.error('Error updating avatar URL:', updateError);
+        return;
+      }
+
+      // Actualizar estado local
+      setSelectedAvatar(uploadData.url);
+      setCustomAvatarUrl(uploadData.url);
+      setAvatarDialogOpen(false);
+
+    } catch (err) {
+      console.error('Error uploading avatar:', err);
+      alert('Error al subir la imagen. Intenta de nuevo.');
     }
   };
 
@@ -193,20 +234,39 @@ export default function ProfilePage() {
             </IconButton>
           }
         >
-          <Avatar 
-            sx={{ 
-              width: 80, 
-              height: 80, 
-              mb: 2, 
-              bgcolor: selectedAvatar.startsWith('data:') || selectedAvatar.length === 1 ? 'transparent' : 'rgba(255,255,255,0.2)',
-              fontSize: selectedAvatar.length === 1 ? '2rem' : 'inherit',
-              cursor: 'pointer'
-            }}
-            src={selectedAvatar.startsWith('data:') ? selectedAvatar : undefined}
+          <Box
             onClick={() => setAvatarDialogOpen(true)}
+            sx={{
+              width: 80,
+              height: 80,
+              borderRadius: '50%',
+              bgcolor: 'rgba(255, 255, 255, 0.15)',
+              backdropFilter: 'blur(10px)',
+              border: '2px solid rgba(255, 255, 255, 0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                bgcolor: 'rgba(255, 255, 255, 0.25)',
+                transform: 'scale(1.05)',
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)'
+              }
+            }}
           >
-            {!selectedAvatar.startsWith('data:') ? getCurrentAvatar() : null}
-          </Avatar>
+            <Avatar 
+              sx={{ 
+                width: 70, 
+                height: 70, 
+                bgcolor: selectedAvatar.startsWith('http') || selectedAvatar.length === 1 ? 'transparent' : 'rgba(255,255,255,0.2)',
+                fontSize: selectedAvatar.length === 1 ? '2rem' : 'inherit',
+              }}
+              src={selectedAvatar.startsWith('http') ? selectedAvatar : undefined}
+            >
+              {!selectedAvatar.startsWith('http') ? getCurrentAvatar() : null}
+            </Avatar>
+          </Box>
         </Badge>
         <Typography variant="h4" gutterBottom fontWeight="bold">
           {user?.username || 'Usuario'}
