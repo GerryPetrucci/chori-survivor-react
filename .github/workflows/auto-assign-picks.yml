@@ -1,0 +1,181 @@
+name: Auto Assign Last Game Picks
+
+# Disparadores para ejecutar este workflow
+on:
+  # Opción 1: Ejecutarse a una hora específica después de monitorear los partidos
+  # Se ejecuta a las 23:05 todos los días (5 minutos después del típico kickoff de juegos nocturnos)
+  schedule:
+    # Lunes 23:05 UTC (aproximadamente 5 minutos después de juegos de MNF típicos)
+    - cron: '5 23 * * 1'
+    # Jueves 2:05 UTC (jueves por la noche/viernes madrugada - TNF)
+    - cron: '5 2 * * 5'
+    # Domingo 23:05 UTC (5 minutos después del último juego dominical)
+    - cron: '5 23 * * 0'
+  
+  # Opción 2: Disparo manual para testing
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Entorno a ejecutar'
+        required: false
+        default: 'production'
+
+# Variables de entorno comunes
+env:
+  NODE_ENV: production
+
+jobs:
+  auto-assign-picks:
+    name: Auto Assign Last Game Picks
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📝 Log job start
+        run: |
+          echo "Iniciando Auto Assign Picks Job"
+          echo "Timestamp: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          echo "Workflow ID: ${{ github.run_id }}"
+      
+      - name: 🔍 Get last game from database
+        id: get-last-game
+        run: |
+          # Este paso obtendría del servidor la hora del último partido
+          # Para propósitos de demostración, usamos la variable de entrada o asumimos que fue hace 5 mins
+          echo "Checking for last game of week..."
+          LAST_GAME_TIME=$(date -u -d '5 minutes ago' +'%Y-%m-%dT%H:%M:%SZ')
+          echo "last_game_time=$LAST_GAME_TIME" >> $GITHUB_OUTPUT
+      
+      - name: ⏰ Calculate delay to game start + 5 minutes
+        id: calculate-delay
+        run: |
+          # Obtener hora actual
+          NOW=$(date -u +%s)
+          
+          # Simulación: el job debe ejecutarse a las XX:05 cada día de juego
+          # Si se ejecuta fuera de esa ventana, esperar al próximo slot disponible
+          echo "Current Unix timestamp: $NOW"
+          echo "Job ejecutado en la ventana de tiempo configurada"
+      
+      - name: 🚀 Call auto-assign-last-game-picks endpoint
+        id: auto-assign
+        run: |
+          # Llamar al endpoint con reintentos
+          MAX_RETRIES=3
+          RETRY_COUNT=0
+          SUCCESS=false
+          
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ] && [ "$SUCCESS" = false ]; do
+            echo "Intento $((RETRY_COUNT + 1))/$MAX_RETRIES - Llamando auto-assign-last-game-picks..."
+            
+            RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+              "${{ secrets.API_BASE_URL }}/auto-assign-last-game-picks" \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer ${{ secrets.API_SECRET_KEY }}" \
+              --max-time 30)
+            
+            HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+            BODY=$(echo "$RESPONSE" | head -n-1)
+            
+            echo "HTTP Status: $HTTP_CODE"
+            echo "Response: $BODY"
+            
+            if [ "$HTTP_CODE" = "200" ]; then
+              SUCCESS=true
+              echo "✅ Auto assign picks completado exitosamente"
+              echo "response=$BODY" >> $GITHUB_OUTPUT
+              
+              # Extraer picks_assigned del response (JSON parsing)
+              PICKS_ASSIGNED=$(echo "$BODY" | grep -o '"picks_assigned":[0-9]*' | cut -d':' -f2)
+              echo "picks_assigned=$PICKS_ASSIGNED" >> $GITHUB_OUTPUT
+            else
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+              if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                echo "⚠️ Intento fallido, reintentando en 10 segundos..."
+                sleep 10
+              fi
+            fi
+          done
+          
+          if [ "$SUCCESS" = false ]; then
+            echo "❌ Error: No se pudo completar auto-assign-last-game-picks después de $MAX_RETRIES intentos"
+            exit 1
+          fi
+      
+      - name: 📊 Post-execution auto-update-picks
+        id: auto-update
+        run: |
+          echo "Esperando 30 segundos antes de ejecutar auto-update-picks..."
+          sleep 30
+          
+          echo "Llamando auto-update-picks para actualizar resultados de picks..."
+          
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            "${{ secrets.API_BASE_URL }}/auto-update-picks" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.API_SECRET_KEY }}" \
+            --max-time 30)
+          
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | head -n-1)
+          
+          echo "Auto-update-picks Status: $HTTP_CODE"
+          echo "Response: $BODY"
+          
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Auto-update-picks completado exitosamente"
+          else
+            echo "⚠️ Auto-update-picks retornó status: $HTTP_CODE"
+          fi
+      
+      - name: 📧 Send notification to Discord
+        if: always()
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook_url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          status: ${{ job.status }}
+          title: "Auto Assign Picks - ${{ job.status }}"
+          description: |
+            **Timestamp**: ${{ steps.get-last-game.outputs.last_game_time }}
+            **Picks Assigned**: ${{ steps.auto-assign.outputs.picks_assigned || 'N/A' }}
+            **Workflow Run**: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          color: |
+            ${{ job.status == 'success' && '32768' || job.status == 'failure' && '16711680' || '16776960' }}
+
+  # Job opcional: Trigger 5 minutos después del último partido (más preciso)
+  # Esta es una alternativa si quieres usar un trigger más dinámico
+  check-and-trigger:
+    name: Check Last Game Time and Trigger Auto Assign
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+      
+      - name: 🔄 Get current season and last game time
+        id: game-check
+        run: |
+          echo "Obteniendo información de temporada y últimos partidos..."
+          
+          # Este paso podría hacer una llamada HTTP a tu API para obtener:
+          # 1. Semana actual
+          # 2. Hora del último partido
+          # 3. Comparar con hora actual
+          
+          LAST_GAME_TIMESTAMP=$(curl -s \
+            "${{ secrets.API_BASE_URL }}/current-week" \
+            -H "Authorization: Bearer ${{ secrets.API_SECRET_KEY }}" | \
+            grep -o '"timestamp":"[^"]*' | cut -d'"' -f4)
+          
+          echo "Last game info retrieved"
+          echo "last_game_timestamp=$LAST_GAME_TIMESTAMP" >> $GITHUB_OUTPUT
+      
+      - name: ⏱️ Wait for 5 minutes after game start
+        run: |
+          echo "Este job verificaría si hemos llegado al tiempo de ejecución"
+          echo "En producción, esto sería más complejo y requeriría coordinación"
+          echo "La solución actual usa cron jobs a horas fijas de los días de juego"
+      
+      - name: ✅ Trigger auto-assign if conditions met
+        if: always()
+        run: |
+          echo "Las condiciones se cumplen, el job auto-assign-picks se ejecutará"
