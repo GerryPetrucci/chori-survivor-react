@@ -31,7 +31,7 @@ class TeamRecordCreate(BaseModel):
 
 # ENDPOINT: Guardar récord semanal de todos los equipos (ejecutar al final de cada semana)
 @app.post("/save-weekly-team-records")
-async def save_weekly_team_records(year: int = Query(...), week: int = Query(...)):
+async def save_weekly_team_records(year: int = Query(...), week: int | None = Query(None)):
     """
     Consulta el récord de cada equipo en la API externa y lo guarda en la tabla team_records para la semana indicada.
     Si la semana es mayor o igual a la semana actual, no hace nada.
@@ -43,6 +43,11 @@ async def save_weekly_team_records(year: int = Query(...), week: int = Query(...
             raise HTTPException(status_code=404, detail="No se encontró la temporada activa para ese año")
         current_season = season_query.data[0]
         current_week = current_season.get("current_week", 1)
+
+        # Si no se pasa week, usar la semana actual menos 1 (para guardar el récord de la semana anterior)
+        if week is None:
+            week = max(1, current_week - 1)
+
         if week >= current_week:
             return {"inserted": 0, "updated": 0, "status": "skipped", "message": f"La semana {week} es mayor o igual a la semana actual ({current_week}). No se actualiza nada."}
 
