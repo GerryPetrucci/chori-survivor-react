@@ -9,6 +9,37 @@ import asyncio
 import os
 from pydantic import BaseModel
 
+from math import floor
+
+# Configuracion de logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
+# Configuración de Supabase
+SUPABASE_URL = os.getenv("VITE_SUPABASE_URL")
+SUPABASE_KEY = os.getenv("VITE_SUPABASE_ANON_KEY")
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    logger.error("Variables de entorno de Supabase no configuradas correctamente")
+    raise ValueError("VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY son requeridas")
+
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+# Configuración de NFL API Data
+RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY", "115f54c5d8msh65bec7d1186e70fp12be67jsn8fc1b8736a43")
+BASE_URL = "https://nfl-api-data.p.rapidapi.com"
+RAPIDAPI_HOST = "nfl-api-data.p.rapidapi.com"
+CDMX_TZ = pytz.timezone('America/Mexico_City')
+
+# Crear app FastAPI con root_path para que funcione detrás del proxy /api
+app = FastAPI(root_path="/api")
+
 # Modelo para team_records
 class TeamRecord(BaseModel):
     id: int | None = None
