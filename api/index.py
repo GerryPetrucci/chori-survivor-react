@@ -135,36 +135,6 @@ async def save_weekly_team_records(year: int = Query(...), week: int | None = Qu
     except Exception as e:
         logger.error(f"Error guardando récords semanales: {e}")
         raise HTTPException(status_code=500, detail=f"Error guardando récords: {str(e)}")
-from math import floor
-
-# Configuracion de logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
-
-# Configuración de Supabase
-SUPABASE_URL = os.getenv("VITE_SUPABASE_URL")
-SUPABASE_KEY = os.getenv("VITE_SUPABASE_ANON_KEY")
-
-if not SUPABASE_URL or not SUPABASE_KEY:
-    logger.error("Variables de entorno de Supabase no configuradas correctamente")
-    raise ValueError("VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY son requeridas")
-
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-
-# Configuración de NFL API Data
-RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY", "115f54c5d8msh65bec7d1186e70fp12be67jsn8fc1b8736a43")
-BASE_URL = "https://nfl-api-data.p.rapidapi.com"
-RAPIDAPI_HOST = "nfl-api-data.p.rapidapi.com"
-CDMX_TZ = pytz.timezone('America/Mexico_City')
-
-# Crear app FastAPI con root_path para que funcione detrás del proxy /api
-app = FastAPI(root_path="/api")
 
 def validate_score(score):
     if score is None:
@@ -194,6 +164,7 @@ async def root():
             "POST /auto-assign-last-game-picks",
             "POST /daily-update",
             "POST /update-weekly-odds-auto",
+            "POST /save-weekly-team-records",
             "GET /test-env",
             "GET /list-teams",
             "GET /test-api"
