@@ -8,6 +8,97 @@ import requests
 import asyncio
 import os
 from pydantic import BaseModel
+
+# Modelo para team_records
+class TeamRecord(BaseModel):
+    id: int | None = None
+    team_id: int
+    year: int
+    week: int
+    wins: int
+    losses: int
+    ties: int
+    updated_at: str | None = None
+
+class TeamRecordCreate(BaseModel):
+    team_id: int
+    year: int
+    week: int
+    wins: int
+    losses: int
+    ties: int
+# ENDPOINT: Guardar récord semanal de todos los equipos (ejecutar al final de cada semana)
+
+# ENDPOINT: Guardar récord semanal de todos los equipos (ejecutar al final de cada semana)
+@app.post("/save-weekly-team-records")
+async def save_weekly_team_records(year: int = Query(...), week: int = Query(...)):
+    """
+    Consulta el récord de cada equipo en la API externa y lo guarda en la tabla team_records para la semana indicada.
+    Si la semana es mayor o igual a la semana actual, no hace nada.
+    """
+    try:
+        # Validar semana actual
+        season_query = supabase.table("seasons").select("*").eq("year", year).eq("is_active", True).execute()
+        if not season_query.data:
+            raise HTTPException(status_code=404, detail="No se encontró la temporada activa para ese año")
+        current_season = season_query.data[0]
+        current_week = current_season.get("current_week", 1)
+        if week >= current_week:
+            return {"inserted": 0, "updated": 0, "status": "skipped", "message": f"La semana {week} es mayor o igual a la semana actual ({current_week}). No se actualiza nada."}
+
+        # Obtener todos los equipos
+        teams_query = supabase.table("teams").select("id, abbreviation").execute()
+        if not teams_query.data:
+            raise HTTPException(status_code=404, detail="No hay equipos en la base de datos")
+        teams = teams_query.data
+
+        # Para cada equipo, consultar el récord y guardar
+        inserted = 0
+        updated = 0
+        for team in teams:
+            team_id = team['id']
+            nfl_id = team_id  # Ajusta si tu mapping de IDs es diferente
+            url = f"{BASE_URL}/nfl-team-record?id={nfl_id}&year={year}"
+            headers = {
+                'X-RapidAPI-Key': RAPIDAPI_KEY,
+                'X-RapidAPI-Host': RAPIDAPI_HOST
+            }
+            response = requests.get(url, headers=headers, timeout=20)
+            if response.status_code != 200:
+                logger.warning(f"No se pudo obtener récord para equipo {team_id}")
+                continue
+            data = response.json()
+            # Buscar el récord global (id=="0" o name=="overall")
+            items = data.get('items', [])
+            overall = next((item for item in items if item.get('id') == '0' or item.get('name') == 'overall'), None)
+            if not overall:
+                logger.warning(f"No se encontró récord global para equipo {team_id}")
+                continue
+            # Parsear wins/losses/ties
+            wins = next((s['value'] for s in overall.get('stats', []) if s['name'] == 'wins'), 0)
+            losses = next((s['value'] for s in overall.get('stats', []) if s['name'] == 'losses'), 0)
+            ties = next((s['value'] for s in overall.get('stats', []) if s['name'] == 'ties'), 0)
+            # Insertar o actualizar en la tabla team_records
+            record_data = {
+                "team_id": team_id,
+                "year": year,
+                "week": week,
+                "wins": wins,
+                "losses": losses,
+                "ties": ties
+            }
+            # Intentar upsert (insertar o actualizar si ya existe)
+            existing = supabase.table("team_records").select("id").eq("team_id", team_id).eq("year", year).eq("week", week).execute()
+            if existing.data:
+                supabase.table("team_records").update(record_data).eq("id", existing.data[0]['id']).execute()
+                updated += 1
+            else:
+                supabase.table("team_records").insert(record_data).execute()
+                inserted += 1
+        return {"inserted": inserted, "updated": updated, "status": "ok"}
+    except Exception as e:
+        logger.error(f"Error guardando récords semanales: {e}")
+        raise HTTPException(status_code=500, detail=f"Error guardando récords: {str(e)}")
 from math import floor
 
 # Configuracion de logging

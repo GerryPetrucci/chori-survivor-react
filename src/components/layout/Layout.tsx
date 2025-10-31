@@ -398,7 +398,7 @@ export default function Layout() {
           }
         }}
       >
-        <MenuItem onClick={() => handleNavigation('/profile')}>
+        <MenuItem onClick={() => { handleProfileMenuClose(); handleNavigation('/profile'); }}>
           <PersonIcon sx={{ mr: 1.5, color: 'primary.main' }} />
           Perfil
         </MenuItem>
