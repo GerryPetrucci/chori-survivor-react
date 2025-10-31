@@ -406,29 +406,30 @@ export default function MatchesPage() {
                         />
                       </Box>
                     </TableCell>
+                    {/* Fecha y Hora en columna separada para md+ */}
                     <TableCell align="center" sx={{ display: { xs: 'none', md: 'table-cell' } }}>
                       <Typography variant="body2" sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
                         {formatDate(match.game_date)}
                       </Typography>
                     </TableCell>
-                    <TableCell align="center">
-                      <Box>
+                    <TableCell align="center" sx={{ verticalAlign: 'top', px: { xs: 0.5, sm: 2 } }}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                         <Typography variant="h6" fontWeight="bold" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
                           {getScoreDisplay(match)}
                         </Typography>
-                        <Box sx={{ display: { xs: 'flex', sm: 'none' }, alignItems: 'center', justifyContent: 'center', gap: 1, mt: 0.5 }}>
-                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                            {new Date(match.game_date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        {/* Fecha y Odds en XS debajo del marcador */}
+                        <Box sx={{ display: { xs: 'flex', md: 'none' }, flexDirection: 'column', alignItems: 'center', mt: 0.5, width: '100%' }}>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem', mb: 0.5 }}>
+                            {formatDate(match.game_date)}
                           </Typography>
-                          <OddsTooltip
-                            matchId={match.id}
-                            homeTeam={match.home_team!}
-                            awayTeam={match.away_team!}
-                          />
+                          <Box sx={{ width: '100%', display: { xs: 'flex', sm: 'none' }, justifyContent: 'center' }}>
+                            <OddsTooltip
+                              matchId={match.id}
+                              homeTeam={match.home_team!}
+                              awayTeam={match.away_team!}
+                            />
+                          </Box>
                         </Box>
-                        <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', md: 'block' }, fontSize: '0.7rem' }}>
-                          {new Date(match.game_date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
-                        </Typography>
                       </Box>
                     </TableCell>
                     <TableCell align="center" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
