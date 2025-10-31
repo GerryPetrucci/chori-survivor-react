@@ -23,7 +23,7 @@ import {
   Sports as SportsIcon,
   CheckCircle as CheckIcon,
 } from '@mui/icons-material';
-import { matchesService, picksService, seasonsService } from '../../services/supabase';
+import { matchesService, picksService, seasonsService, teamRecordsService, teamsService } from '../../services/supabase';
 import PickSuccessModal from './PickSuccessModal';
 import ConfirmPickChangeModal from './ConfirmPickChangeModal';
 import OddsTooltip from './OddsTooltip';
@@ -73,6 +73,10 @@ interface ExistingPick {
 }
 
 export default function PicksModal({ open, onClose, entryId, entryName }: PicksModalProps) {
+  // State for all teams
+  const [allTeams, setAllTeams] = useState<any[]>([]);
+  // State for team records (by team_id)
+  const [teamRecords, setTeamRecords] = useState<Record<number, { wins: number; losses: number; ties: number }> | null>(null);
   const [loading, setLoading] = useState(false);
   const [matches, setMatches] = useState<Match[]>([]);
   const [usedTeams, setUsedTeams] = useState<number[]>([]);
@@ -91,14 +95,58 @@ export default function PicksModal({ open, onClose, entryId, entryName }: PicksM
   useEffect(() => {
     if (open && entryId) {
       loadInitialData();
+      loadAllTeams();
     }
   }, [open, entryId]);
+
+  // Cargar todos los equipos
+  const loadAllTeams = async () => {
+    const { data, error } = await teamsService.getAll();
+    if (!error && data) setAllTeams(data);
+  };
+  // Equipos en bye (no juegan esta semana)
+  const byeTeamIds = allTeams.length > 0
+    ? allTeams.map(t => t.id).filter(
+        id => !matches.some(m => m.home_team_id === id || m.away_team_id === id)
+      )
+    : [];
+  const byeTeams = allTeams.filter(t => byeTeamIds.includes(t.id));
 
   useEffect(() => {
     if (currentSeason && selectedWeek) {
       loadWeekData();
+      loadTeamRecords();
     }
   }, [selectedWeek, currentSeason]);
+
+  // Load team records for previous week (or 0-0 for week 1)
+  const loadTeamRecords = async () => {
+    if (!currentSeason) return;
+    // For week 1, show 0-0 for all teams
+    if (selectedWeek === 1) {
+      setTeamRecords({});
+      return;
+    }
+    try {
+      const { data, error } = await teamRecordsService.getRecordsByWeek(currentSeason.year, selectedWeek - 1);
+      if (error) {
+        setTeamRecords(null);
+        return;
+      }
+      // Map by team_id for quick lookup
+      const recordsMap: Record<number, { wins: number; losses: number; ties: number }> = {};
+      for (const rec of data) {
+        recordsMap[rec.team_id] = {
+          wins: rec.wins,
+          losses: rec.losses,
+          ties: rec.ties
+        };
+      }
+      setTeamRecords(recordsMap);
+    } catch (err) {
+      setTeamRecords(null);
+    }
+  };
 
   const loadInitialData = async () => {
     try {
@@ -427,6 +475,24 @@ export default function PicksModal({ open, onClose, entryId, entryName }: PicksM
             </FormControl>
           </Box>
 
+
+          {/* Bloque de equipos en BYE */}
+          {byeTeams.length > 0 && (
+            <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#764ba2', minWidth: 40 }}>Bye:</Typography>
+              {byeTeams.map(team => (
+                <Box key={team.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <img
+                    src={getTeamLogo(team.logo_url)}
+                    alt={team.name}
+                    style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: 4, border: '1px solid #eee', background: '#fff' }}
+                  />
+                  <Typography variant="caption" sx={{ fontSize: '0.7rem', color: 'text.secondary', ml: 0.5 }}>{team.abbreviation}</Typography>
+                </Box>
+              ))}
+            </Box>
+          )}
+
           <Typography variant="h6" gutterBottom>
             Partidos de la Semana {selectedWeek}
           </Typography>
@@ -443,7 +509,7 @@ export default function PicksModal({ open, onClose, entryId, entryName }: PicksM
                     flexDirection={{ xs: 'row', sm: 'row' }}
                     flexWrap={{ xs: 'wrap', md: 'wrap' }}
                   >
-                    {/* Away Team: círculo, logo, abrev */}
+                    {/* Away Team: círculo, logo, abrev, récord */}
                     <Box display="flex" alignItems="center" gap={1}>
                       <FormControlLabel
                         value={match.away_team_id}
@@ -458,17 +524,22 @@ export default function PicksModal({ open, onClose, entryId, entryName }: PicksM
                         label=""
                         sx={{ m: 0 }}
                       />
-                      <img
-                        src={getTeamLogo(match.away_team?.logo_url)}
-                        alt={match.away_team?.name}
-                        style={{ 
-                          width: 28, 
-                          height: 28, 
-                          objectFit: 'contain',
-                          opacity: canSelectTeam(match.away_team_id, match) ? 1 : 0.4,
-                          filter: canSelectTeam(match.away_team_id, match) ? 'none' : 'grayscale(100%)'
-                        }}
-                      />
+                      <Box display="flex" flexDirection="column" alignItems="center">
+                        <img
+                          src={getTeamLogo(match.away_team?.logo_url)}
+                          alt={match.away_team?.name}
+                          style={{ 
+                            width: 28, 
+                            height: 28, 
+                            objectFit: 'contain',
+                            opacity: canSelectTeam(match.away_team_id, match) ? 1 : 0.4,
+                            filter: canSelectTeam(match.away_team_id, match) ? 'none' : 'grayscale(100%)'
+                          }}
+                        />
+                        <Typography variant="caption" sx={{ fontSize: '0.7rem', color: 'text.secondary', mt: 0.2 }}>
+                          {selectedWeek === 1 || !teamRecords || !teamRecords[match.away_team_id] ? '0-0' : `${teamRecords[match.away_team_id].wins}-${teamRecords[match.away_team_id].losses}${teamRecords[match.away_team_id].ties > 0 ? `-${teamRecords[match.away_team_id].ties}` : ''}`}
+                        </Typography>
+                      </Box>
                       <Typography 
                         variant="body2" 
                         fontWeight="bold" 
@@ -484,7 +555,7 @@ export default function PicksModal({ open, onClose, entryId, entryName }: PicksM
                     <Typography variant="h6" color="text.secondary" sx={{ my: { xs: 0.5, sm: 0 } }}>
                       @
                     </Typography>
-                    {/* Home Team: abrev, logo, círculo */}
+                    {/* Home Team: abrev, logo, círculo, récord */}
                     <Box display="flex" alignItems="center" gap={1}>
                       <Typography 
                         variant="body2" 
@@ -493,17 +564,22 @@ export default function PicksModal({ open, onClose, entryId, entryName }: PicksM
                       >
                         {match.home_team?.abbreviation}
                       </Typography>
-                      <img
-                        src={getTeamLogo(match.home_team?.logo_url)}
-                        alt={match.home_team?.name}
-                        style={{ 
-                          width: 28, 
-                          height: 28, 
-                          objectFit: 'contain',
-                          opacity: canSelectTeam(match.home_team_id, match) ? 1 : 0.4,
-                          filter: canSelectTeam(match.home_team_id, match) ? 'none' : 'grayscale(100%)'
-                        }}
-                      />
+                      <Box display="flex" flexDirection="column" alignItems="center">
+                        <img
+                          src={getTeamLogo(match.home_team?.logo_url)}
+                          alt={match.home_team?.name}
+                          style={{ 
+                            width: 28, 
+                            height: 28, 
+                            objectFit: 'contain',
+                            opacity: canSelectTeam(match.home_team_id, match) ? 1 : 0.4,
+                            filter: canSelectTeam(match.home_team_id, match) ? 'none' : 'grayscale(100%)'
+                          }}
+                        />
+                        <Typography variant="caption" sx={{ fontSize: '0.7rem', color: 'text.secondary', mt: 0.2 }}>
+                          {selectedWeek === 1 || !teamRecords || !teamRecords[match.home_team_id] ? '0-0' : `${teamRecords[match.home_team_id].wins}-${teamRecords[match.home_team_id].losses}${teamRecords[match.home_team_id].ties > 0 ? `-${teamRecords[match.home_team_id].ties}` : ''}`}
+                        </Typography>
+                      </Box>
                       <FormControlLabel
                         value={match.home_team_id}
                         control={

@@ -82,49 +82,72 @@ async def save_weekly_team_records(year: int = Query(...), week: int | None = Qu
         if week >= current_week:
             return {"inserted": 0, "updated": 0, "status": "skipped", "message": f"La semana {week} es mayor o igual a la semana actual ({current_week}). No se actualiza nada."}
 
-        # Obtener todos los equipos
-        teams_query = supabase.table("teams").select("id, abbreviation").execute()
+        # Obtener todos los equipos locales con info relevante
+        teams_query = supabase.table("teams").select("id, name, city, abbreviation").execute()
         if not teams_query.data:
             raise HTTPException(status_code=404, detail="No hay equipos en la base de datos")
         teams = teams_query.data
 
-        # Para cada equipo, consultar el récord y guardar
+        # Obtener lista de equipos de la API externa (nuevo endpoint)
+        api_url = f"{BASE_URL}/nfl-team-listing/v1/data"
+        headers = {
+            'X-RapidAPI-Key': RAPIDAPI_KEY,
+            'X-RapidAPI-Host': RAPIDAPI_HOST
+        }
+        api_resp = requests.get(api_url, headers=headers, timeout=20)
+        if api_resp.status_code != 200:
+            raise HTTPException(status_code=500, detail="No se pudo obtener lista de equipos de la API externa")
+        api_teams = [t['team'] for t in api_resp.json() if 'team' in t]
+
+        # Mapeo: para cada equipo de la API, buscar el id local usando abbreviation, name o location
+        def find_local_team(api_team):
+            api_name = api_team.get('name', '').lower()
+            api_city = api_team.get('location', '').lower()
+            api_abbr = api_team.get('abbreviation', '').lower()
+            for t in teams:
+                if (
+                    t['name'].lower() == api_name or
+                    t['city'].lower() == api_city or
+                    t['abbreviation'].lower() == api_abbr
+                ):
+                    return t['id']
+            # Fallback: buscar por inclusión
+            for t in teams:
+                if t['name'].lower() in api_name or api_name in t['name'].lower():
+                    return t['id']
+            return None
+
         inserted = 0
         updated = 0
-        for team in teams:
-            team_id = team['id']
-            nfl_id = team_id  # Ajusta si tu mapping de IDs es diferente
+        for api_team in api_teams:
+            local_team_id = find_local_team(api_team)
+            if not local_team_id:
+                logger.warning(f"No se encontró equipo local para {api_team}")
+                continue
+            nfl_id = api_team.get('id')
             url = f"{BASE_URL}/nfl-team-record?id={nfl_id}&year={year}"
-            headers = {
-                'X-RapidAPI-Key': RAPIDAPI_KEY,
-                'X-RapidAPI-Host': RAPIDAPI_HOST
-            }
             response = requests.get(url, headers=headers, timeout=20)
             if response.status_code != 200:
-                logger.warning(f"No se pudo obtener récord para equipo {team_id}")
+                logger.warning(f"No se pudo obtener récord para equipo {nfl_id}")
                 continue
             data = response.json()
-            # Buscar el récord global (id=="0" o name=="overall")
             items = data.get('items', [])
             overall = next((item for item in items if item.get('id') == '0' or item.get('name') == 'overall'), None)
             if not overall:
-                logger.warning(f"No se encontró récord global para equipo {team_id}")
+                logger.warning(f"No se encontró récord global para equipo {nfl_id}")
                 continue
-            # Parsear wins/losses/ties
             wins = next((s['value'] for s in overall.get('stats', []) if s['name'] == 'wins'), 0)
             losses = next((s['value'] for s in overall.get('stats', []) if s['name'] == 'losses'), 0)
             ties = next((s['value'] for s in overall.get('stats', []) if s['name'] == 'ties'), 0)
-            # Insertar o actualizar en la tabla team_records
             record_data = {
-                "team_id": team_id,
+                "team_id": local_team_id,
                 "year": year,
                 "week": week,
                 "wins": wins,
                 "losses": losses,
                 "ties": ties
             }
-            # Intentar upsert (insertar o actualizar si ya existe)
-            existing = supabase.table("team_records").select("id").eq("team_id", team_id).eq("year", year).eq("week", week).execute()
+            existing = supabase.table("team_records").select("id").eq("team_id", local_team_id).eq("year", year).eq("week", week).execute()
             if existing.data:
                 supabase.table("team_records").update(record_data).eq("id", existing.data[0]['id']).execute()
                 updated += 1

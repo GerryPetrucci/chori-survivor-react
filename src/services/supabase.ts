@@ -1,3 +1,29 @@
+// =====================================================
+// TEAM RECORDS
+// =====================================================
+
+export const teamRecordsService = {
+  // Obtener récord de un equipo para un año y semana
+  getTeamRecord: async (teamId: number, year: number, week: number) => {
+    const { data, error } = await supabase
+      .from('team_records')
+      .select('*')
+      .eq('team_id', teamId)
+      .eq('year', year)
+      .eq('week', week)
+      .single();
+    return { data, error };
+  },
+  // Obtener todos los récords de una semana y año
+  getRecordsByWeek: async (year: number, week: number) => {
+    const { data, error } = await supabase
+      .from('team_records')
+      .select('*')
+      .eq('year', year)
+      .eq('week', week);
+    return { data: data || [], error };
+  }
+};
 import { supabase } from '../config/supabase';
 import type { Database } from '../config/supabase';
 
