@@ -62,7 +62,7 @@ function TabPanel(props: TabPanelProps) {
       aria-labelledby={`profile-tab-${index}`}
       {...other}
     >
-      {value === index && <Box sx={{ pt: 3 }}>{children}</Box>}
+  {value === index && <Box sx={{ pt: { xs: 1, sm: 3 }, width: '100%' }}>{children}</Box>}
     </div>
   );
 }
@@ -199,7 +199,7 @@ export default function ProfilePage() {
   };
 
   return (
-    <Box>
+    <Box sx={{ width: '100%', maxWidth: 1200, mx: 'auto' }}>
       <Box
         sx={{
           background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -268,20 +268,17 @@ export default function ProfilePage() {
             </Avatar>
           </Box>
         </Badge>
-        <Typography variant="h4" gutterBottom fontWeight="bold">
-          {user?.username || 'Usuario'}
-        </Typography>
-        <Typography variant="subtitle1" sx={{ opacity: 0.9 }}>
-          {user?.user_type === 'admin' ? 'Administrador' : 'Miembro del Survivor Pool'}
-        </Typography>
+        <Typography variant="h5" sx={{ mt: 2, fontWeight: 'bold' }}>{user?.username || 'Perfil'}</Typography>
       </Box>
-
-      <Paper sx={{ mb: 3 }}>
+      <Paper sx={{ p: { xs: 1, sm: 3 }, mt: 3, width: '100%' }}>
         <Tabs
           value={tabValue}
           onChange={handleTabChange}
           indicatorColor="primary"
           textColor="primary"
+          variant="scrollable"
+          scrollButtons="auto"
+          allowScrollButtonsMobile
           sx={{ borderBottom: 1, borderColor: 'divider' }}
         >
           <Tab icon={<TrendingUp />} label="Estadísticas" />
@@ -302,12 +299,12 @@ export default function ProfilePage() {
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, mb: 3 }}>
                 <Card sx={{ flex: '1 1 300px' }}>
                   <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1, sm: 2 }, flexWrap: 'wrap' }}>
                       <EmojiEvents sx={{ mr: 1, color: 'primary.main' }} />
                       <Typography variant="h6">Estadísticas Generales</Typography>
                     </Box>
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-                      <Box sx={{ textAlign: 'center', flex: '1 1 100px' }}>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: { xs: 1, sm: 2 } }}>
+                      <Box sx={{ textAlign: 'center', flex: '1 1 100px', minWidth: 0 }}>
                         <Typography variant="h4" color="success.main">
                           {userStats.totalWins}
                         </Typography>

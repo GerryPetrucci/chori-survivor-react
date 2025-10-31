@@ -220,19 +220,20 @@ const Trends: React.FC = () => {
   }
 
   return (
-    <Box>
+    <Box sx={{ width: '100%', maxWidth: 1200, mx: 'auto' }}>
       {/* Header con gradiente */}
       <Box
         sx={{
           background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
           borderRadius: 3,
-          p: 3,
+          p: { xs: 2, sm: 3 },
           mb: 3,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           color: 'white',
-          textAlign: 'center'
+          textAlign: 'center',
+          width: '100%'
         }}
       >
         <Typography variant="h4" gutterBottom fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' }, flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -245,9 +246,9 @@ const Trends: React.FC = () => {
       </Box>
 
       {/* Contenedor principal con Tabs */}
-      <Paper sx={{ p: 3, mt: 3 }}>
+  <Paper sx={{ p: { xs: 1, sm: 3 }, mt: 3, width: '100%' }}>
         {/* Controles superiores */}
-        <Box sx={{ p: { xs: 1, sm: 2 }, display: 'flex', justifyContent: 'flex-end', borderBottom: 1, borderColor: 'divider' }}>
+  <Box sx={{ p: { xs: 1, sm: 2 }, display: 'flex', justifyContent: { xs: 'center', sm: 'flex-end' }, borderBottom: 1, borderColor: 'divider', flexWrap: 'wrap', gap: 1 }}>
           <FormControl sx={{ minWidth: { xs: 120, sm: 150, md: 200 } }} size="small">
             <InputLabel id="week-select-label">Semana</InputLabel>
             <Select
@@ -281,7 +282,7 @@ const Trends: React.FC = () => {
           variant="scrollable"
           scrollButtons="auto"
           allowScrollButtonsMobile
-          sx={{ borderBottom: 1, borderColor: 'divider', minHeight: { xs: 40, sm: 48 } }}
+          sx={{ borderBottom: 1, borderColor: 'divider', minHeight: { xs: 32, sm: 48 }, fontSize: { xs: '0.9rem', sm: '1rem' } }}
         >
           <Tab label="Estadísticas de Equipos" {...a11yProps(0)} sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, minWidth: { xs: 80, sm: 120 }, px: { xs: 1, sm: 2 } }} />
           <Tab label="Distribución de Picks" {...a11yProps(1)} sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, minWidth: { xs: 80, sm: 120 }, px: { xs: 1, sm: 2 } }} />
@@ -294,7 +295,7 @@ const Trends: React.FC = () => {
           <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
             Equipos Más Populares
           </Typography>
-          <TableContainer>
+          <TableContainer sx={{ width: '100%', overflowX: 'auto' }}>
             <Table size="small" sx={{ minWidth: { xs: 300, sm: 650 } }}>
               <TableHead>
                 <TableRow>
@@ -309,7 +310,7 @@ const Trends: React.FC = () => {
                 {trendsData.teamStats.slice(0, 10).map((team) => (
                   <TableRow key={team.team_id}>
                     <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1 } }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1 }, flexWrap: 'wrap' }}>
                         <img
                           src={getTeamLogo(team.logo_url)} // Usar solo logo_url
                           alt={team.team_name}
@@ -441,8 +442,8 @@ const Trends: React.FC = () => {
         <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
           Análisis de Riesgo por Equipos
         </Typography>
-        <TableContainer>
-          <Table size="small" sx={{ minWidth: { xs: 300, sm: 650 } }}>
+          <TableContainer sx={{ width: '100%', overflowX: 'auto' }}>
+            <Table size="small" sx={{ minWidth: { xs: 300, sm: 650 } }}>
             <TableHead>
               <TableRow>
                 <TableCell>Equipo</TableCell>
@@ -463,7 +464,7 @@ const Trends: React.FC = () => {
                   return (
                     <TableRow key={team.team_id}>
                       <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1 } }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1 }, flexWrap: 'wrap' }}>
                           <img
                             src={getTeamLogo(team.logo_url)} // Usar solo logo_url
                             alt={team.team_name}

@@ -122,8 +122,9 @@ jobs:
   save-weekly-team-records:
     name: Save Weekly Team Records
     runs-on: ubuntu-latest
-  # Ejecutar cada martes a las 00:00 AM UTC (después de la semana NFL)
-    if: github.event.schedule == '0 0 * * 2' || github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'save-weekly-team-records' || github.event.inputs.job == 'all')
+    # Ejecutar cada martes a las 00:00 AM UTC (después de la semana NFL)
+    # El job SIEMPRE corre en el cron, y solo filtra por if cuando es ejecución manual
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.job == 'save-weekly-team-records' || github.event.inputs.job == 'all'
     steps:
       - name: 🏈 Save Weekly Team Records
         run: |
