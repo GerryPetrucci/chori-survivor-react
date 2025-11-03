@@ -2,6 +2,8 @@
 from fastapi import FastAPI, HTTPException, Query, Body
 from supabase import create_client, Client
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
+import os
 import pytz
 import logging
 import requests
@@ -88,31 +90,63 @@ async def save_weekly_team_records(year: int = Query(...)):
             raise HTTPException(status_code=500, detail="No se pudo obtener lista de equipos de la API externa")
         api_teams = [t['team'] for t in api_resp.json() if 'team' in t]
         logger.info(f"✅ {len(api_teams)} equipos obtenidos de la API")
+        
+        # Log: mostrar todos los equipos únicos de la API
+        unique_teams = {}
+        for t in api_teams:
+            team_key = f"{t.get('location', '')} {t.get('name', '')}".strip()
+            unique_teams[team_key] = t.get('abbreviation', '')
+        logger.info(f"🏈 Equipos únicos en API: {len(unique_teams)}")
+        for team_name, abbr in sorted(unique_teams.items()):
+            logger.info(f"   • {team_name} ({abbr})")
 
         # Mapeo: para cada equipo de la API, buscar el id local usando abbreviation, name o location
+        # IMPORTANTE: Priorizar abbreviation porque es único (ej: LAR vs LAC en Los Angeles)
         def find_local_team(api_team):
             api_name = api_team.get('name', '').lower()
             api_city = api_team.get('location', '').lower()
             api_abbr = api_team.get('abbreviation', '').lower()
-            for t in teams:
-                if (
-                    t['name'].lower() == api_name or
-                    t['city'].lower() == api_city or
-                    t['abbreviation'].lower() == api_abbr
-                ):
-                    return t['id']
-            # Fallback: buscar por inclusión
-            for t in teams:
-                if t['name'].lower() in api_name or api_name in t['name'].lower():
-                    return t['id']
+            
+            # 1. Primero buscar por abreviación (es única y más confiable)
+            if api_abbr:
+                for t in teams:
+                    if t['abbreviation'].lower() == api_abbr:
+                        return t['id']
+            
+            # 2. Luego por nombre exacto
+            if api_name:
+                for t in teams:
+                    if t['name'].lower() == api_name:
+                        return t['id']
+            
+            # 3. Fallback: buscar por ciudad (puede tener múltiples equipos)
+            if api_city:
+                for t in teams:
+                    if t['city'].lower() == api_city:
+                        return t['id']
+            
+            # 4. Último intento: inclusión de nombre
+            if api_name:
+                for t in teams:
+                    if t['name'].lower() in api_name or api_name in t['name'].lower():
+                        return t['id']
+            
             return None
 
         inserted = 0
         updated = 0
+        not_mapped = []  # Equipos de la API que no mapearon
         
         for api_team in api_teams:
             local_team_id = find_local_team(api_team)
             if not local_team_id:
+                api_team_info = {
+                    "name": api_team.get('name'),
+                    "location": api_team.get('location'),
+                    "abbreviation": api_team.get('abbreviation'),
+                    "nfl_id": api_team.get('id')
+                }
+                not_mapped.append(api_team_info)
                 logger.warning(f"⚠️ No se encontró equipo local para {api_team}")
                 continue
                 
@@ -167,6 +201,8 @@ async def save_weekly_team_records(year: int = Query(...)):
         return {
             "inserted": inserted,
             "updated": updated,
+            "not_mapped_count": len(not_mapped),
+            "not_mapped": not_mapped,
             "status": "ok",
             "message": f"Records actualizados para el año {year}"
         }
@@ -258,9 +294,9 @@ def find_team_match(api_team_name, db_teams):
     """
     Buscar coincidencia entre nombre de API y equipos de base de datos
     """
-    api_name_lower = api_team_name.lower()
-    
-    # Mapeo manual de nombres de API a nombres de DB
+    api_name_lower = (api_team_name or "").lower()
+
+    # Mapeo manual de nombres de API a nombres de DB (nombre en DB)
     team_mappings = {
         'detroit lions': 'Lions',
         'los angeles chargers': 'Chargers',
@@ -295,20 +331,29 @@ def find_team_match(api_team_name, db_teams):
         'seattle seahawks': 'Seahawks',
         'las vegas raiders': 'Raiders'
     }
-    
-    # Buscar mapeo directo
+
+    # 1) Intentar mapeo directo por nombre completo (mapeo manual)
     if api_name_lower in team_mappings:
-        target_name = team_mappings[api_name_lower]
+        target_name = team_mappings[api_name_lower].lower()
         for team in db_teams:
-            if team['name'] == target_name:
+            tname = (team.get('name') or '').lower()
+            if tname == target_name:
                 return team
-    
-    # Buscar por coincidencia parcial en el nombre
+
+    # 2) Intentar buscar por abreviación (ej. NYJ, LAR)
     for team in db_teams:
-        team_name_lower = team['name'].lower()
-        if team_name_lower in api_name_lower or api_name_lower.endswith(team_name_lower):
+        abbr = (team.get('abbreviation') or '').lower()
+        if abbr and (abbr == api_name_lower or abbr in api_name_lower):
             return team
-    
+
+    # 3) Buscar por coincidencia parcial en el nombre
+    for team in db_teams:
+        team_name_lower = (team.get('name') or '').lower()
+        if team_name_lower and (team_name_lower in api_name_lower or api_name_lower.endswith(team_name_lower)):
+            return team
+
+    # No se encontró match — registrar para depuración
+    logger.warning(f"find_team_match: no match for API team '{api_team_name}'")
     return None
 
 
