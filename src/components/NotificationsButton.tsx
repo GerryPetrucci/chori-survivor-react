@@ -286,18 +286,16 @@ export default function NotificationsButton() {
           ))
         )}
 
-        {notifications.length > 0 && (
-          <>
-            <Divider />
-            <MenuItem onClick={handleClose}>
-              <Box sx={{ textAlign: 'center', width: '100%' }}>
-                <Typography variant="body2" color="primary">
-                  Ver historial completo
-                </Typography>
-              </Box>
-            </MenuItem>
-          </>
-        )}
+        {notifications.length > 0 && [
+          <Divider key="divider" />,
+          <MenuItem key="view-all" onClick={handleClose}>
+            <Box sx={{ textAlign: 'center', width: '100%' }}>
+              <Typography variant="body2" color="primary">
+                Ver historial completo
+              </Typography>
+            </Box>
+          </MenuItem>
+        ]}
       </Menu>
     </>
   );

@@ -1294,45 +1294,56 @@ export const storageService = {
   // Subir avatar de usuario
   uploadAvatar: async (userId: string, file: File) => {
     try {
+      // Validar sesión activa
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        console.error('Session error:', sessionError);
+        return { data: null, error: 'No hay sesión activa. Por favor, vuelve a iniciar sesión.' };
+      }
+
+      console.log('Session valid, uploading avatar...');
+
       // Validar tipo de archivo
       const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
       if (!validTypes.includes(file.type)) {
         return { data: null, error: 'Tipo de archivo no válido. Usa JPG, PNG, GIF o WEBP.' };
       }
 
-      // Validar tamaño (máximo 2MB)
-      if (file.size > 2 * 1024 * 1024) {
-        return { data: null, error: 'La imagen es muy grande. Máximo 2MB.' };
+      // Validar tamaño (máximo 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        return { data: null, error: 'La imagen es muy grande. Máximo 5MB.' };
       }
 
-      // Generar nombre único para el archivo
+      // Generar nombre único para el archivo con timestamp para evitar caché
+      const timestamp = Date.now();
       const fileExt = file.name.split('.').pop();
-      const fileName = `${userId}.${fileExt}`;
+      const fileName = `${userId}_${timestamp}.${fileExt}`;
 
-      // Eliminar archivo anterior si existe (mismo nombre base)
-      try {
-        await supabase.storage.from('profile_avatar').remove([fileName]);
-      } catch (e) {
-        // Ignorar error si no existe
-      }
+      console.log('Uploading file:', fileName, 'Size:', file.size, 'Type:', file.type);
 
-      // Subir archivo con upsert
-      const { error: uploadError } = await supabase.storage
+      // Subir archivo
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('profile_avatar')
         .upload(fileName, file, {
           cacheControl: '3600',
-          upsert: true
+          upsert: false,
+          contentType: file.type
         });
 
       if (uploadError) {
-        console.error('Upload error:', uploadError);
+        console.error('Upload error details:', uploadError);
         return { data: null, error: `Error al subir: ${uploadError.message}` };
       }
+
+      console.log('Upload successful:', uploadData);
 
       // Obtener URL pública
       const { data: urlData } = supabase.storage
         .from('profile_avatar')
         .getPublicUrl(fileName);
+
+      console.log('Public URL:', urlData.publicUrl);
 
       return { data: { path: fileName, url: urlData.publicUrl }, error: null };
     } catch (error: any) {

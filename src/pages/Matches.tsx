@@ -532,8 +532,8 @@ export default function MatchesPage() {
                       />
                     </TableCell>
                   </TableRow>
-                    );
-                })}
+                );
+              })}
               </TableBody>
             </Table>
           </TableContainer>

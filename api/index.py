@@ -1255,8 +1255,8 @@ async def auto_update_picks():
             team_id = pick['selected_team_id']
             entry_id = pick['entry_id']
             week = pick['week']
-            # Obtener el partido con la hora del partido
-            match_query = supabase.table("matches").select("home_team_id, away_team_id, home_score, away_score, game_date").eq("id", match_id).execute()
+            # Obtener el partido con la hora del partido y el status
+            match_query = supabase.table("matches").select("home_team_id, away_team_id, home_score, away_score, game_date, status").eq("id", match_id).execute()
             if not match_query.data:
                 continue
             match = match_query.data[0]
@@ -1265,8 +1265,20 @@ async def auto_update_picks():
             home_score = match['home_score']
             away_score = match['away_score']
             game_date = match.get('game_date')
+            match_status = match.get('status', 'scheduled')
 
-            # Si no hay marcador, poner pick en 'pending'
+            # VALIDACIÓN: Solo actualizar si el partido está completado
+            # Si el partido no está completado, marcar como pending
+            if match_status != 'completed':
+                if pick.get('result') != 'pending':
+                    supabase.table("picks").update({
+                        "result": "pending",
+                        "points_earned": 0
+                    }).eq("id", pick['id']).execute()
+                    logger.info(f"Pick ID {pick['id']}: Partido con status '{match_status}', resultado cambiado a 'pending'")
+                continue
+
+            # Si no hay marcador (aunque esté completed, por seguridad), poner pick en 'pending'
             if home_score is None or away_score is None:
                 if pick.get('result') != 'pending':
                     supabase.table("picks").update({

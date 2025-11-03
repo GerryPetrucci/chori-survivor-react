@@ -43,6 +43,13 @@ curl "https://tu-app.vercel.app/api/get-weekly-odds?week=8"
 ```bash
 curl -X POST https://tu-app.vercel.app/api/auto-update-picks
 ```
+**Descripción**: Actualiza automáticamente los picks según los resultados de los partidos.
+- ✅ **SOLO actualiza picks de partidos con status `completed`**
+- Valida marcadores (`home_score` y `away_score`)
+- Calcula puntos basados en el multiplicador de anticipación
+- Actualiza estadísticas de entradas
+
+**Uso en workflows**: Se ejecuta automáticamente después de `update-matches` si la actualización fue exitosa.
 
 #### 6. **GET /current-week** - Obtener semana actual
 ```bash

@@ -46,6 +46,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useState, useEffect } from 'react';
 import { statsService, userProfilesService, storageService } from '../services/supabase';
 import { supabase } from '../config/supabase';
+import SuccessModal from '../components/ui/SuccessModal';
+import ImageCropper from '../components/ui/ImageCropper';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -76,6 +78,11 @@ export default function ProfilePage() {
   const [avatarDialogOpen, setAvatarDialogOpen] = useState(false);
   const [selectedAvatar, setSelectedAvatar] = useState<string>('');
   const [customAvatarUrl, setCustomAvatarUrl] = useState<string>('');
+  const [successModalOpen, setSuccessModalOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [cropperOpen, setCropperOpen] = useState(false);
+  const [imageToCrop, setImageToCrop] = useState<string>('');
+  const [originalFileName, setOriginalFileName] = useState<string>('');
   const [preferences, setPreferences] = useState({
     theme: 'light',
     timezone: 'America/Mexico_City',
@@ -153,30 +160,83 @@ export default function ProfilePage() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    try {
-      if (!user?.id) return;
+    // Validar tipo de archivo
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      setSuccessMessage('Tipo de archivo no válido. Usa JPG, PNG, GIF o WEBP.');
+      setSuccessModalOpen(true);
+      return;
+    }
 
-      // Chequeo de sesión y token antes de subir
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      console.log('Supabase session:', sessionData, 'Session error:', sessionError);
-      if (!sessionData?.session) {
-        alert('No hay sesión activa. Por favor, vuelve a iniciar sesión.');
+    // Validar tamaño (máximo 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setSuccessMessage('La imagen es muy grande. Máximo 5MB.');
+      setSuccessModalOpen(true);
+      return;
+    }
+
+    // Crear URL temporal para el cropper
+    const reader = new FileReader();
+    reader.onload = () => {
+      setImageToCrop(reader.result as string);
+      setOriginalFileName(file.name);
+      setCropperOpen(true);
+      setAvatarDialogOpen(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCropComplete = async (croppedBlob: Blob) => {
+    try {
+      if (!user?.id) {
+        setSuccessMessage('Error: No se pudo identificar el usuario.');
+        setSuccessModalOpen(true);
         return;
       }
-      console.log('Access token:', sessionData.session.access_token);
+
+      console.log('Starting avatar upload for user:', user.id);
+
+      // Verificar sesión activa
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !sessionData?.session) {
+        console.error('Session error:', sessionError);
+        setSuccessMessage('No hay sesión activa. Por favor, cierra sesión y vuelve a iniciar sesión.');
+        setSuccessModalOpen(true);
+        setCropperOpen(false);
+        return;
+      }
+
+      console.log('Session is valid, uploading avatar...');
+
+      // Crear File desde el Blob
+      const croppedFile = new File([croppedBlob], originalFileName || 'avatar.jpg', {
+        type: 'image/jpeg'
+      });
 
       // Subir imagen a Supabase Storage
-      const { data: uploadData, error: uploadError } = await storageService.uploadAvatar(user.id, file);
+      const { data: uploadData, error: uploadError } = await storageService.uploadAvatar(user.id, croppedFile);
       
       if (uploadError) {
-        alert(uploadError);
+        console.error('Upload error:', uploadError);
+        setSuccessMessage(`Error al subir la imagen: ${uploadError}`);
+        setSuccessModalOpen(true);
+        setCropperOpen(false);
         return;
       }
 
-      if (!uploadData) return;
+      if (!uploadData) {
+        setSuccessMessage('Error: No se recibió respuesta del servidor.');
+        setSuccessModalOpen(true);
+        setCropperOpen(false);
+        return;
+      }
+
+      console.log('Upload successful:', uploadData);
 
       // Eliminar avatar anterior si existe y es del storage
       if (user.avatar_url && user.avatar_url.includes('profile_avatar')) {
+        console.log('Deleting old avatar:', user.avatar_url);
         await storageService.deleteAvatar(user.avatar_url);
       }
 
@@ -186,18 +246,29 @@ export default function ProfilePage() {
       });
 
       if (updateError) {
-        console.error('Error updating avatar URL:', updateError);
+        console.error('Error updating avatar URL in database:', updateError);
+        setSuccessMessage('Error al actualizar el perfil. Intenta de nuevo.');
+        setSuccessModalOpen(true);
+        setCropperOpen(false);
         return;
       }
+
+      console.log('Avatar updated successfully in database');
 
       // Actualizar estado local
       setSelectedAvatar(uploadData.url);
       setCustomAvatarUrl(uploadData.url);
-      setAvatarDialogOpen(false);
+      setCropperOpen(false);
+      
+      // Mostrar modal de éxito
+      setSuccessMessage('¡Tu foto de perfil se actualizó correctamente!');
+      setSuccessModalOpen(true);
 
     } catch (err) {
-      console.error('Error uploading avatar:', err);
-      alert('Error al subir la imagen. Intenta de nuevo.');
+      console.error('Unexpected error uploading avatar:', err);
+      setSuccessMessage('Error inesperado al subir la imagen. Revisa la consola para más detalles.');
+      setSuccessModalOpen(true);
+      setCropperOpen(false);
     }
   };
 
@@ -776,6 +847,25 @@ export default function ProfilePage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Modal de Editor de Imagen */}
+      <ImageCropper
+        open={cropperOpen}
+        imageSrc={imageToCrop}
+        onClose={() => {
+          setCropperOpen(false);
+          setAvatarDialogOpen(true);
+        }}
+        onCropComplete={handleCropComplete}
+      />
+
+      {/* Modal de Éxito */}
+      <SuccessModal
+        open={successModalOpen}
+        onClose={() => setSuccessModalOpen(false)}
+        message={successMessage}
+        title="¡Perfecto!"
+      />
     </Box>
   );
 }
