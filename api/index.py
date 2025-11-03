@@ -1580,7 +1580,6 @@ async def auto_assign_last_game_picks():
           asigna el PRIMER equipo que haya PERDIDO en una semana anterior
        c. Si ningún equipo ha perdido (entrada sin pérdidas), asigna el away_team de todas formas
     4. El pick se marca como automático con created_at = game_date (así multiplicador = 1)
-    5. El pick se marca como 'auto_assigned' en un campo metadata para rastreo
     
     Multiplicador:
     - Como created_at = game_date, la diferencia es 0 horas
@@ -1708,12 +1707,7 @@ async def auto_assign_last_game_picks():
                 "season_id": season_id,
                 "confidence": 0,  # Auto-assigned
                 "result": "pending",
-                "created_at": pick_datetime.isoformat(),
-                "metadata": {
-                    "auto_assigned": True,
-                    "reason": assignment_reason,
-                    "assigned_at": datetime.now(pytz.timezone('America/Mexico_City')).isoformat()
-                }
+                "created_at": pick_datetime.isoformat()
             }
             
             try:

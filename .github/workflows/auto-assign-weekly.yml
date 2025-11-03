@@ -1,9 +1,9 @@
-name: Auto Assign Weekly Picks - Lunes 17:00 CDMX
+name: Auto Assign Weekly Picks - Lunes 17:20 CDMX
 
-# Se ejecuta los lunes a las 17:00 CDMX (23:00 UTC)
+# Se ejecuta los lunes a las 17:20 CDMX (23:20 UTC)
 on:
   schedule:
-    - cron: '0 23 * * 1'  # Lunes 17:00 CDMX
+    - cron: '20 23 * * 1'  # Lunes 17:20 CDMX
 
   # Permitir ejecución manual
   workflow_dispatch:
