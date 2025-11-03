@@ -50,6 +50,29 @@ const formatOdds = (odds: number): string => {
   return odds.toString();
 };
 
+// Calcular probabilidad implícita a partir de moneyline
+const calculateImpliedProbability = (moneyline: number): number => {
+  if (moneyline < 0) {
+    // Para favoritos (moneyline negativo)
+    return (Math.abs(moneyline) / (Math.abs(moneyline) + 100)) * 100;
+  } else {
+    // Para underdogs (moneyline positivo)
+    return (100 / (moneyline + 100)) * 100;
+  }
+};
+
+// Normalizar probabilidades para que sumen 100%
+const normalizeImpliedProbabilities = (awayMoneyline: number, homeMoneyline: number): { away: number; home: number } => {
+  const awayProb = calculateImpliedProbability(awayMoneyline);
+  const homeProb = calculateImpliedProbability(homeMoneyline);
+  const total = awayProb + homeProb;
+  
+  return {
+    away: Math.round((awayProb / total) * 100),
+    home: Math.round((homeProb / total) * 100)
+  };
+};
+
 // Mapeo de abreviaciones a nombres de archivos de logos
 const teamLogoMap: { [key: string]: string } = {
   'SF': '49ers',
@@ -180,6 +203,9 @@ export default function OddsTooltip({ matchId, homeTeam, awayTeam }: OddsTooltip
       );
     }
 
+    // Calcular porcentajes de victoria
+    const winProbabilities = normalizeImpliedProbabilities(odds.away_moneyline, odds.home_moneyline);
+
     return (
       <Paper sx={{ p: 2, minWidth: 280, maxWidth: 350 }}>
         <Typography variant="subtitle2" sx={{ textAlign: 'center', mb: 2, fontWeight: 'bold' }}>
@@ -219,12 +245,12 @@ export default function OddsTooltip({ matchId, homeTeam, awayTeam }: OddsTooltip
               {awayTeam.abbreviation}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              @ {homeTeam.abbreviation}
+              {winProbabilities.away}%
             </Typography>
           </Box>
 
           <Typography variant="h6" color="text.secondary" sx={{ mx: 2 }}>
-            vs
+            @
           </Typography>
 
           {/* Home Team */}
@@ -258,7 +284,7 @@ export default function OddsTooltip({ matchId, homeTeam, awayTeam }: OddsTooltip
               {homeTeam.abbreviation}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              (Local)
+              {winProbabilities.home}%
             </Typography>
           </Box>
         </Box>

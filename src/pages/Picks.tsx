@@ -121,6 +121,21 @@ export default function PicksPage() {
                   value={selectedEntry || ''}
                   label="Entrada"
                   onChange={(e) => setSelectedEntry(Number(e.target.value))}
+                  MenuProps={{
+                    anchorOrigin: {
+                      vertical: 'bottom',
+                      horizontal: 'left',
+                    },
+                    transformOrigin: {
+                      vertical: 'top',
+                      horizontal: 'left',
+                    },
+                    PaperProps: {
+                      style: {
+                        maxHeight: 300,
+                      },
+                    },
+                  }}
                 >
                   {userEntries.map((entry) => (
                     <MenuItem key={entry.id} value={entry.id}>

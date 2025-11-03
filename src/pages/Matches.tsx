@@ -385,6 +385,21 @@ export default function MatchesPage() {
               value={selectedWeek}
               label="Semana"
               onChange={(e) => setSelectedWeek(e.target.value as number)}
+              MenuProps={{
+                anchorOrigin: {
+                  vertical: 'bottom',
+                  horizontal: 'left',
+                },
+                transformOrigin: {
+                  vertical: 'top',
+                  horizontal: 'left',
+                },
+                PaperProps: {
+                  style: {
+                    maxHeight: 300,
+                  },
+                },
+              }}
             >
               {availableWeeks.map((week) => (
                 <MenuItem key={week} value={week}>
