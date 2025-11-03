@@ -451,7 +451,16 @@ export default function PicksModal({ open, onClose, entryId, entryName }: PicksM
             </Alert>
           )}
 
-          <Box display="flex" alignItems="center" gap={2} mb={3} flexWrap="wrap">
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2,
+              mb: 3,
+              flexWrap: 'wrap',
+              mt: (!error && !existingPick) ? { xs: 2, sm: 3 } : 0
+            }}
+          >
             <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
               Selecciona la semana:
             </Typography>

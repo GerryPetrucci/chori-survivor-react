@@ -412,7 +412,7 @@ export default function DashboardPage() {
             </Typography>
             
             {dashboardData ? (
-              <Typography color="text.secondary">
+              <Typography color="text.secondary" sx={{ mb: 2 }}>
                 Semana actual: {dashboardData.semana_actual || 'N/A'}
               </Typography>
             ) : (
@@ -421,9 +421,50 @@ export default function DashboardPage() {
               </Typography>
             )}
 
-            <Alert severity="info" sx={{ mt: 2 }}>
-              ¡Recuerda hacer tu pick antes de que comiencen los partidos de la semana!
-            </Alert>
+            {(() => {
+              // Buscar el pick de la semana actual
+              const currentWeek = dashboardData?.semana_actual;
+              const currentWeekPick = recentPicks.find(pick => pick.week === currentWeek);
+
+              if (!currentWeekPick) {
+                // No hay pick para la semana actual
+                return (
+                  <Alert severity="warning" sx={{ mt: 2 }}>
+                    ¡Recuerda registrar tu pick antes de que termine la semana actual!
+                  </Alert>
+                );
+              }
+
+              // Ya hay pick, revisar el resultado
+              const result = currentWeekPick.result;
+
+              if (result === 'W' || result === 'win') {
+                return (
+                  <Alert severity="success" sx={{ mt: 2 }}>
+                    ¡Felicidades, acertaste esta semana! 🎉
+                  </Alert>
+                );
+              } else if (result === 'L' || result === 'loss') {
+                return (
+                  <Alert severity="error" sx={{ mt: 2 }}>
+                    Suerte la próxima semana, tu equipo esta semana no ganó 😔
+                  </Alert>
+                );
+              } else if (result === 'T' || result === 'tie') {
+                return (
+                  <Alert severity="info" sx={{ mt: 2 }}>
+                    Tu equipo empató esta semana. ¡Sigue participando! 🤝
+                  </Alert>
+                );
+              } else {
+                // Resultado pendiente
+                return (
+                  <Alert severity="success" sx={{ mt: 2 }}>
+                    ✅ Tu entrada ya registró su pick para esta semana. ¡Buena suerte!
+                  </Alert>
+                );
+              }
+            })()}
           </CardContent>
         </Card>
 
