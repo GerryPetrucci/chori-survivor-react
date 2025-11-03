@@ -417,7 +417,13 @@ export default function MatchesPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {matches.map((match) => (
+                {matches.map((match) => {
+                    // Determinar el ganador si el partido está completado
+                    const isCompleted = match.status === 'completed';
+                    const awayWon = isCompleted && match.away_score !== null && match.home_score !== null && match.away_score > match.home_score;
+                    const homeWon = isCompleted && match.away_score !== null && match.home_score !== null && match.home_score > match.away_score;
+
+                    return (
                     <TableRow key={match.id} sx={{ '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.04)' } }}>
                       <TableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1 } }}>
@@ -432,7 +438,10 @@ export default function MatchesPage() {
                               height: { xs: 24, sm: 28 },
                               objectFit: 'contain',
                               borderRadius: 1,
-                              border: '1px solid rgba(0,0,0,0.1)'
+                              border: '1px solid rgba(0,0,0,0.1)',
+                              backgroundColor: awayWon ? '#81c784' : 'transparent',
+                              padding: awayWon ? 0.5 : 0,
+                              transition: 'all 0.2s ease'
                             }}
                           />
                           {teamRecords && match.away_team?.id && teamRecords[match.away_team.id] && (
@@ -467,7 +476,10 @@ export default function MatchesPage() {
                               height: { xs: 24, sm: 28 },
                               objectFit: 'contain',
                               borderRadius: 1,
-                              border: '1px solid rgba(0,0,0,0.1)'
+                              border: '1px solid rgba(0,0,0,0.1)',
+                              backgroundColor: homeWon ? '#81c784' : 'transparent',
+                              padding: homeWon ? 0.5 : 0,
+                              transition: 'all 0.2s ease'
                             }}
                           />
                           {teamRecords && match.home_team?.id && teamRecords[match.home_team.id] && (
@@ -520,7 +532,8 @@ export default function MatchesPage() {
                       />
                     </TableCell>
                   </TableRow>
-                ))}
+                    );
+                })}
               </TableBody>
             </Table>
           </TableContainer>

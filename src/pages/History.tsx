@@ -249,18 +249,39 @@ export default function HistoryPage() {
                     primary={activity.description}
                     secondary={
                       <>
-                        <Chip
-                          label={activity.activity_type?.replace('_', ' ') || 'Actividad'}
-                          size="small"
-                          color={getActivityColor(activity.activity_type) as any}
-                          variant="outlined"
-                          sx={{ mr: 1, mt: 0.5 }}
-                        />
+                        <Typography 
+                          component="span" 
+                          variant="caption" 
+                          sx={{ 
+                            display: 'inline-block',
+                            backgroundColor: (() => {
+                              const color = getActivityColor(activity.activity_type);
+                              switch (color) {
+                                case 'primary': return 'primary.main';
+                                case 'success': return 'success.main';
+                                case 'warning': return 'warning.main';
+                                case 'info': return 'info.main';
+                                default: return 'info.main';
+                              }
+                            })(),
+                            color: 'white',
+                            px: 1,
+                            py: 0.25,
+                            borderRadius: 1,
+                            fontSize: '0.75rem',
+                            fontWeight: 500,
+                            mr: 1,
+                            mt: 0.5
+                          }}
+                        >
+                          {activity.activity_type?.replace('_', ' ') || 'Actividad'}
+                        </Typography>
                         <Typography component="span" variant="caption" color="text.secondary">
                           {formatDate(activity.created_at)} a las {formatTime(activity.created_at)}
                         </Typography>
                       </>
                     }
+                    secondaryTypographyProps={{ component: 'div' }}
                   />
                 </ListItem>
               ))}
