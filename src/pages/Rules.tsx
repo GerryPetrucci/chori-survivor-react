@@ -46,7 +46,7 @@ export default function RulesPage() {
         <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3 }}>
           <Box sx={{ flex: 1, border: '2px solid #4caf50', borderRadius: 2, p: 2 }}>
             <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, color: '#4caf50' }}>
-              💚 Pool Principal (Alives)
+              💚 Pool Principal
             </Typography>
             <List dense>
               <ListItem>
