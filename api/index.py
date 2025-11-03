@@ -1370,8 +1370,9 @@ async def auto_update_picks():
                 points_earned = int(1.0 * multiplier)
             elif result == 'T':
                 points_earned = int(0.5 * multiplier)
-            else:
-                points_earned = 0
+            else:  # result == 'L'
+                # Pérdida: restar 300 puntos fijos (sin multiplicador)
+                points_earned = -300
 
             # Actualizar pick con resultado y puntos
             supabase.table("picks").update({
@@ -1380,7 +1381,7 @@ async def auto_update_picks():
             }).eq("id", pick['id']).execute()
             
             logger.info(f"Pick ID {pick['id']}: Resultado={result}, Horas de anticipación={multiplier}, " \
-                      f"Puntos ganados={points_earned}, Semana={week}")
+                      f"Puntos ganados/perdidos={points_earned}, Semana={week}")
                       
             updated_count += 1
         # Actualizar estadísticas de entradas
