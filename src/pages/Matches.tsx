@@ -141,7 +141,7 @@ export default function MatchesPage() {
   const loadTeamRecords = async () => {
     if (!currentSeason) return;
     try {
-      const { data, error } = await teamRecordsService.getRecordsByWeek(currentSeason.year, selectedWeek);
+      const { data, error } = await teamRecordsService.getRecordsByYear(currentSeason.year);
       if (error) {
         setTeamRecords(null);
         return;
@@ -444,10 +444,12 @@ export default function MatchesPage() {
                               transition: 'all 0.2s ease'
                             }}
                           />
-                          {teamRecords && match.away_team?.id && teamRecords[match.away_team.id] && (
+                          {match.away_team?.id && (
                             <Typography variant="caption" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, color: 'text.secondary', mt: 0.2, letterSpacing: 0.2 }}>
-                              {`${teamRecords[match.away_team.id].wins}-${teamRecords[match.away_team.id].losses}`}
-                              {teamRecords[match.away_team.id].ties > 0 ? `-${teamRecords[match.away_team.id].ties}` : ''}
+                              {teamRecords && teamRecords[match.away_team.id]
+                                ? `${teamRecords[match.away_team.id].wins}-${teamRecords[match.away_team.id].losses}${teamRecords[match.away_team.id].ties > 0 ? `-${teamRecords[match.away_team.id].ties}` : ''}`
+                                : '0-0'
+                              }
                             </Typography>
                           )}
                         </Box>
@@ -482,10 +484,12 @@ export default function MatchesPage() {
                               transition: 'all 0.2s ease'
                             }}
                           />
-                          {teamRecords && match.home_team?.id && teamRecords[match.home_team.id] && (
+                          {match.home_team?.id && (
                             <Typography variant="caption" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, color: 'text.secondary', mt: 0.2, letterSpacing: 0.2 }}>
-                              {`${teamRecords[match.home_team.id].wins}-${teamRecords[match.home_team.id].losses}`}
-                              {teamRecords[match.home_team.id].ties > 0 ? `-${teamRecords[match.home_team.id].ties}` : ''}
+                              {teamRecords && teamRecords[match.home_team.id]
+                                ? `${teamRecords[match.home_team.id].wins}-${teamRecords[match.home_team.id].losses}${teamRecords[match.home_team.id].ties > 0 ? `-${teamRecords[match.home_team.id].ties}` : ''}`
+                                : '0-0'
+                              }
                             </Typography>
                           )}
                         </Box>

@@ -45,7 +45,6 @@ class TeamRecord(BaseModel):
     id: int | None = None
     team_id: int
     year: int
-    week: int
     wins: int
     losses: int
     ties: int
@@ -54,50 +53,41 @@ class TeamRecord(BaseModel):
 class TeamRecordCreate(BaseModel):
     team_id: int
     year: int
-    week: int
     wins: int
     losses: int
     ties: int
 # ENDPOINT: Guardar récord semanal de todos los equipos (ejecutar al final de cada semana)
 
-# ENDPOINT: Guardar récord semanal de todos los equipos (ejecutar al final de cada semana)
+# ENDPOINT: Guardar récord de todos los equipos (actualiza el récord más reciente)
 @app.post("/save-weekly-team-records")
-async def save_weekly_team_records(year: int = Query(...), week: int | None = Query(None)):
+async def save_weekly_team_records(year: int = Query(...)):
     """
-    Consulta el récord de cada equipo en la API externa y lo guarda en la tabla team_records para la semana indicada.
-    Si la semana es mayor o igual a la semana actual, no hace nada.
+    Consulta el récord de cada equipo en la API externa y lo guarda/actualiza en la tabla team_records.
+    Ahora la tabla NO tiene campo 'week', solo mantiene el récord más reciente por equipo y año.
+    Esto significa que cada vez que se ejecuta, actualiza el récord del equipo para ese año.
     """
     try:
-        # Validar semana actual
-        season_query = supabase.table("seasons").select("*").eq("year", year).eq("is_active", True).execute()
-        if not season_query.data:
-            raise HTTPException(status_code=404, detail="No se encontró la temporada activa para ese año")
-        current_season = season_query.data[0]
-        current_week = current_season.get("current_week", 1)
-
-        # Si no se pasa week, usar la semana actual menos 1 (para guardar el récord de la semana anterior)
-        if week is None:
-            week = max(1, current_week - 1)
-
-        if week >= current_week:
-            return {"inserted": 0, "updated": 0, "status": "skipped", "message": f"La semana {week} es mayor o igual a la semana actual ({current_week}). No se actualiza nada."}
-
+        logger.info(f"🔄 INICIANDO: Actualización de records de equipos - Año {year}")
+        
         # Obtener todos los equipos locales con info relevante
         teams_query = supabase.table("teams").select("id, name, city, abbreviation").execute()
         if not teams_query.data:
             raise HTTPException(status_code=404, detail="No hay equipos en la base de datos")
         teams = teams_query.data
 
-        # Obtener lista de equipos de la API externa (nuevo endpoint)
+        # Obtener lista de equipos de la API externa
         api_url = f"{BASE_URL}/nfl-team-listing/v1/data"
         headers = {
             'X-RapidAPI-Key': RAPIDAPI_KEY,
             'X-RapidAPI-Host': RAPIDAPI_HOST
         }
+        
+        logger.info(f"📡 Obteniendo lista de equipos desde API externa")
         api_resp = requests.get(api_url, headers=headers, timeout=20)
         if api_resp.status_code != 200:
             raise HTTPException(status_code=500, detail="No se pudo obtener lista de equipos de la API externa")
         api_teams = [t['team'] for t in api_resp.json() if 'team' in t]
+        logger.info(f"✅ {len(api_teams)} equipos obtenidos de la API")
 
         # Mapeo: para cada equipo de la API, buscar el id local usando abbreviation, name o location
         def find_local_team(api_team):
@@ -119,44 +109,70 @@ async def save_weekly_team_records(year: int = Query(...), week: int | None = Qu
 
         inserted = 0
         updated = 0
+        
         for api_team in api_teams:
             local_team_id = find_local_team(api_team)
             if not local_team_id:
-                logger.warning(f"No se encontró equipo local para {api_team}")
+                logger.warning(f"⚠️ No se encontró equipo local para {api_team}")
                 continue
+                
             nfl_id = api_team.get('id')
+            
+            # Obtener récord del equipo desde la API
             url = f"{BASE_URL}/nfl-team-record?id={nfl_id}&year={year}"
             response = requests.get(url, headers=headers, timeout=20)
+            
             if response.status_code != 200:
-                logger.warning(f"No se pudo obtener récord para equipo {nfl_id}")
+                logger.warning(f"⚠️ No se pudo obtener récord para equipo NFL ID {nfl_id}")
                 continue
+                
             data = response.json()
             items = data.get('items', [])
+            
+            # Buscar el récord 'overall' (general)
             overall = next((item for item in items if item.get('id') == '0' or item.get('name') == 'overall'), None)
             if not overall:
-                logger.warning(f"No se encontró récord global para equipo {nfl_id}")
+                logger.warning(f"⚠️ No se encontró récord global para equipo NFL ID {nfl_id}")
                 continue
+                
+            # Extraer wins, losses, ties
             wins = next((s['value'] for s in overall.get('stats', []) if s['name'] == 'wins'), 0)
             losses = next((s['value'] for s in overall.get('stats', []) if s['name'] == 'losses'), 0)
             ties = next((s['value'] for s in overall.get('stats', []) if s['name'] == 'ties'), 0)
+            
+            # Datos del récord (SIN campo week)
             record_data = {
                 "team_id": local_team_id,
                 "year": year,
-                "week": week,
                 "wins": wins,
                 "losses": losses,
                 "ties": ties
             }
-            existing = supabase.table("team_records").select("id").eq("team_id", local_team_id).eq("year", year).eq("week", week).execute()
+            
+            # Verificar si ya existe un récord para este equipo y año
+            existing = supabase.table("team_records").select("id").eq("team_id", local_team_id).eq("year", year).execute()
+            
             if existing.data:
+                # ACTUALIZAR récord existente
                 supabase.table("team_records").update(record_data).eq("id", existing.data[0]['id']).execute()
                 updated += 1
+                logger.info(f"✏️ Actualizado: Team {local_team_id} - {wins}-{losses}-{ties}")
             else:
+                # INSERTAR nuevo récord
                 supabase.table("team_records").insert(record_data).execute()
                 inserted += 1
-        return {"inserted": inserted, "updated": updated, "status": "ok"}
+                logger.info(f"➕ Insertado: Team {local_team_id} - {wins}-{losses}-{ties}")
+        
+        logger.info(f"✅ COMPLETADO - Insertados: {inserted}, Actualizados: {updated}")
+        return {
+            "inserted": inserted,
+            "updated": updated,
+            "status": "ok",
+            "message": f"Records actualizados para el año {year}"
+        }
+        
     except Exception as e:
-        logger.error(f"Error guardando récords semanales: {e}")
+        logger.error(f"❌ Error guardando récords: {e}")
         raise HTTPException(status_code=500, detail=f"Error guardando récords: {str(e)}")
 
 def validate_score(score):

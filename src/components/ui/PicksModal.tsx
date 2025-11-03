@@ -122,13 +122,9 @@ export default function PicksModal({ open, onClose, entryId, entryName }: PicksM
   // Load team records for previous week (or 0-0 for week 1)
   const loadTeamRecords = async () => {
     if (!currentSeason) return;
-    // For week 1, show 0-0 for all teams
-    if (selectedWeek === 1) {
-      setTeamRecords({});
-      return;
-    }
+    // Cargar récords del año actual (ya no depende de la semana)
     try {
-      const { data, error } = await teamRecordsService.getRecordsByWeek(currentSeason.year, selectedWeek - 1);
+      const { data, error } = await teamRecordsService.getRecordsByYear(currentSeason.year);
       if (error) {
         setTeamRecords(null);
         return;
@@ -537,7 +533,7 @@ export default function PicksModal({ open, onClose, entryId, entryName }: PicksM
                           }}
                         />
                         <Typography variant="caption" sx={{ fontSize: '0.7rem', color: 'text.secondary', mt: 0.2 }}>
-                          {selectedWeek === 1 || !teamRecords || !teamRecords[match.away_team_id] ? '0-0' : `${teamRecords[match.away_team_id].wins}-${teamRecords[match.away_team_id].losses}${teamRecords[match.away_team_id].ties > 0 ? `-${teamRecords[match.away_team_id].ties}` : ''}`}
+                          {!teamRecords || !teamRecords[match.away_team_id] ? '0-0' : `${teamRecords[match.away_team_id].wins}-${teamRecords[match.away_team_id].losses}${teamRecords[match.away_team_id].ties > 0 ? `-${teamRecords[match.away_team_id].ties}` : ''}`}
                         </Typography>
                       </Box>
                       <Typography 
@@ -577,7 +573,7 @@ export default function PicksModal({ open, onClose, entryId, entryName }: PicksM
                           }}
                         />
                         <Typography variant="caption" sx={{ fontSize: '0.7rem', color: 'text.secondary', mt: 0.2 }}>
-                          {selectedWeek === 1 || !teamRecords || !teamRecords[match.home_team_id] ? '0-0' : `${teamRecords[match.home_team_id].wins}-${teamRecords[match.home_team_id].losses}${teamRecords[match.home_team_id].ties > 0 ? `-${teamRecords[match.home_team_id].ties}` : ''}`}
+                          {!teamRecords || !teamRecords[match.home_team_id] ? '0-0' : `${teamRecords[match.home_team_id].wins}-${teamRecords[match.home_team_id].losses}${teamRecords[match.home_team_id].ties > 0 ? `-${teamRecords[match.home_team_id].ties}` : ''}`}
                         </Typography>
                       </Box>
                       <FormControlLabel

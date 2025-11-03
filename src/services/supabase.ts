@@ -3,24 +3,38 @@
 // =====================================================
 
 export const teamRecordsService = {
-  // Obtener récord de un equipo para un año y semana
-  getTeamRecord: async (teamId: number, year: number, week: number) => {
+  // Obtener récord de un equipo para un año (sin week)
+  getTeamRecord: async (teamId: number, year: number) => {
     const { data, error } = await supabase
       .from('team_records')
       .select('*')
       .eq('team_id', teamId)
       .eq('year', year)
-      .eq('week', week)
-      .single();
-    return { data, error };
+      .maybeSingle();
+    
+    // Si no existe, devolver récord por defecto 0-0-0
+    if (!data || error) {
+      return { 
+        data: { 
+          team_id: teamId, 
+          year: year, 
+          wins: 0, 
+          losses: 0, 
+          ties: 0 
+        }, 
+        error: null 
+      };
+    }
+    
+    return { data, error: null };
   },
-  // Obtener todos los récords de una semana y año
-  getRecordsByWeek: async (year: number, week: number) => {
+  
+  // Obtener todos los récords de un año
+  getRecordsByYear: async (year: number) => {
     const { data, error } = await supabase
       .from('team_records')
       .select('*')
-      .eq('year', year)
-      .eq('week', week);
+      .eq('year', year);
     return { data: data || [], error };
   }
 };
