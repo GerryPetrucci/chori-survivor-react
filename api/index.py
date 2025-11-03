@@ -568,28 +568,26 @@ async def update_matches(body: UpdateMatchesRequest = Body(None)):
             raise HTTPException(status_code=404, detail="No hay temporada activa")
         current_season = season_query.data[0]
         season_id = current_season['id']
-        season_year = current_season['year']
+        nfl_season_year = current_season['year']
 
         # Obtener fechas desde la semana actual hasta el final de la temporada
         logger.info("INICIANDO: Procesamiento con NFL API Data - Semana actual en adelante")
         
-        # Calcular fechas desde la semana actual hasta el final de la temporada NFL
+        # Determinar año de la temporada NFL actual basado en la base de datos
         today = datetime.now(pytz.utc)
         
-        # Temporada NFL 2025-2026: Septiembre 2025 a Febrero 2026
-        # Semana 1 regular: ~4 de septiembre 2025
-        # Última semana playoff/Super Bowl: ~8 de febrero 2026
-        season_start = datetime(2025, 9, 4, tzinfo=pytz.utc)  # Inicio temporada 2025
-        season_end = datetime(2026, 2, 8, tzinfo=pytz.utc)    # Final temporada (Super Bowl)
+        # Temporada NFL: Septiembre a Febrero del siguiente año
+        # Usar el año de la temporada desde la base de datos
+        # Inicio: Primera semana de septiembre del año de la temporada
+        season_start = datetime(nfl_season_year, 9, 1, tzinfo=pytz.utc)
+        # Final: Segunda semana de febrero del año siguiente (Super Bowl)
+        season_end = datetime(nfl_season_year + 1, 2, 15, tzinfo=pytz.utc)
         
         # Si se proporciona week_param, solo procesar esa semana
         if week_param is not None:
-            week_start = datetime(season_year, 9, 4, tzinfo=pytz.utc) + timedelta(weeks=week_param-1)
+            week_start = season_start + timedelta(weeks=week_param-1)
             test_dates = [week_start.strftime("%Y-%m-%d")]
         else:
-            today = datetime.now(pytz.utc)
-            season_start = datetime(2025, 9, 4, tzinfo=pytz.utc)
-            season_end = datetime(2026, 2, 8, tzinfo=pytz.utc)
             current_date = max(today.date(), season_start.date())
             end_date = season_end.date()
             test_dates = []
@@ -597,12 +595,9 @@ async def update_matches(body: UpdateMatchesRequest = Body(None)):
             while date_cursor <= end_date and len(test_dates) < 50:
                 test_dates.append(date_cursor.strftime("%Y-%m-%d"))
                 date_cursor += timedelta(days=7)
-        logger.info(f"Procesando {len(test_dates)} fechas desde {test_dates[0] if test_dates else 'ninguna'} hasta {test_dates[-1] if test_dates else 'ninguna'}")
         
-        # Obtener eventos desde la API NFL por año (2025)
-        current_year = 2025  # Temporada NFL 2025-2026
+        # Obtener eventos desde la API NFL por año (usar año de la temporada)
         url = f"{BASE_URL}/nfl-events"
-        logger.info(f"Consultando API NFL para el año {current_year}")
         
         try:
             headers = {
@@ -610,10 +605,10 @@ async def update_matches(body: UpdateMatchesRequest = Body(None)):
                 'X-RapidAPI-Host': RAPIDAPI_HOST
             }
             params = {
-                'year': current_year
+                'year': nfl_season_year
             }
+            
             response = requests.get(url, headers=headers, params=params, timeout=30)
-            logger.info(f"API RESPONSE: Status {response.status_code} - {url}")
             
             if response.status_code == 429:
                 logger.warning(f"RATE LIMIT: Esperando 60 segundos...")
@@ -622,10 +617,9 @@ async def update_matches(body: UpdateMatchesRequest = Body(None)):
             
             response.raise_for_status()
             data = response.json()
-            logger.info(f"DATA KEYS: {data.keys() if isinstance(data, dict) else 'Not dict'}")
             
             if not data or 'events' not in data or not data['events']:
-                logger.info(f"NO EVENTS: Sin eventos para el año {current_year}")
+                logger.info(f"NO EVENTS: Sin eventos para el año {nfl_season_year}")
                 return {
                     "matches_updated": 0,
                     "matches_inserted": 0,
@@ -841,8 +835,16 @@ async def update_matches(body: UpdateMatchesRequest = Body(None)):
             "matches_inserted": matches_inserted,
             "status": "completed"
         }
+    except HTTPException as he:
+        # Re-lanzar excepciones HTTP tal cual
+        raise he
+    except requests.exceptions.RequestException as re:
+        # Errores de red/API
+        logger.error(f"Error de red/API en update_matches: {str(re)}")
+        raise HTTPException(status_code=503, detail=f"Error consultando API NFL: {str(re)}")
     except Exception as e:
-        logger.error(f"Error crítico durante la actualización: {e}")
+        # Otros errores
+        logger.error(f"Error crítico durante la actualización: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error crítico durante la actualización de partidos: {str(e)}")
 
 @app.post("/set-current-week")
@@ -1858,10 +1860,10 @@ async def schedule_weekly_auto_assign():
             }
             
         except Exception as e:
-            logger.error(f"Error parseando fechas: {e}")
-            return {"error": f"Error parseando fechas: {str(e)}", "schedule": None}
-        
-        except Exception as e:
             logger.error(f"❌ ERROR PROGRAMACIÓN AUTO-ASSIGN: {e}")
-            return {"error": str(e), "schedule": None}# Para Vercel, el objeto app es el handler
+            return {"error": str(e), "schedule": None}
+    
+    except Exception as e:
+        logger.error(f"❌ ERROR GENERAL en schedule_weekly_auto_assign: {e}")
+        return {"error": str(e), "schedule": None}# Para Vercel, el objeto app es el handler
 # Vercel automáticamente detecta FastAPI y lo ejecuta
