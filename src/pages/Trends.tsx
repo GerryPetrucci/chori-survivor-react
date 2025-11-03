@@ -277,6 +277,21 @@ const Trends: React.FC = () => {
               value={selectedWeek}
               label="Semana"
               onChange={handleWeekChange}
+              MenuProps={{
+                anchorOrigin: {
+                  vertical: 'bottom',
+                  horizontal: 'left',
+                },
+                transformOrigin: {
+                  vertical: 'top',
+                  horizontal: 'left',
+                },
+                PaperProps: {
+                  style: {
+                    maxHeight: 300,
+                  },
+                },
+              }}
             >
               <MenuItem value="all">Todas las Semanas</MenuItem>
               {/* Mostrar semanas ordenadas ascendentemente */}

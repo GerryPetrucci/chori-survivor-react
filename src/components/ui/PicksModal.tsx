@@ -451,16 +451,31 @@ export default function PicksModal({ open, onClose, entryId, entryName }: PicksM
             </Alert>
           )}
 
-          <Box display="flex" alignItems="center" gap={2} mb={3}>
-            <Typography variant="h6">
+          <Box display="flex" alignItems="center" gap={2} mb={3} flexWrap="wrap">
+            <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
               Selecciona la semana:
             </Typography>
-            <FormControl size="small" sx={{ minWidth: 120 }}>
+            <FormControl size="small" sx={{ minWidth: { xs: 120, sm: 140 } }}>
               <InputLabel>Semana</InputLabel>
               <Select
                 value={selectedWeek}
                 label="Semana"
                 onChange={(e) => setSelectedWeek(Number(e.target.value))}
+                MenuProps={{
+                  anchorOrigin: {
+                    vertical: 'bottom',
+                    horizontal: 'left',
+                  },
+                  transformOrigin: {
+                    vertical: 'top',
+                    horizontal: 'left',
+                  },
+                  PaperProps: {
+                    style: {
+                      maxHeight: 300,
+                    },
+                  },
+                }}
               >
                 {availableWeeks.map((week) => (
                   <MenuItem key={week} value={week}>

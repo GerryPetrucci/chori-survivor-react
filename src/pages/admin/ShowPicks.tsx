@@ -19,6 +19,7 @@ import {
   Avatar
 } from '@mui/material';
 import { supabase } from '../../config/supabase';
+import UserStatsModal from '../../components/ui/UserStatsModal';
 
 interface Pick {
   id: number;
@@ -29,6 +30,7 @@ interface Pick {
   entry_id: number;
   entry_name: string;
   username: string;
+  user_id: string;
   avatar_url?: string;
   team_name: string;
   team_abbreviation: string;
@@ -43,6 +45,9 @@ export default function ShowPicks() {
   const [selectedWeek, setSelectedWeek] = useState<number>(1);
   const [currentWeek, setCurrentWeek] = useState<number>(1);
   const [availableWeeks, setAvailableWeeks] = useState<number[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedUserData, setSelectedUserData] = useState<{ username: string; avatarUrl?: string } | null>(null);
+  const [showStatsModal, setShowStatsModal] = useState(false);
 
   useEffect(() => {
     loadInitialData();
@@ -151,6 +156,7 @@ export default function ShowPicks() {
           entry_id: pick.entry_id,
           entry_name: pick.entries.entry_name,
           username: userData.username,
+          user_id: pick.entries.user_id,
           avatar_url: userData.avatar_url,
           team_name: pick.selected_team.name,
           team_abbreviation: pick.selected_team.abbreviation,
@@ -204,6 +210,7 @@ export default function ShowPicks() {
             entry_id: entry.id,
             entry_name: entry.entry_name,
             username: userData.username,
+            user_id: entry.user_id,
             avatar_url: userData.avatar_url,
             team_name: 'Sin pick',
             team_abbreviation: '—',
@@ -221,6 +228,18 @@ export default function ShowPicks() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleAvatarClick = (userId: string, username: string, avatarUrl?: string) => {
+    setSelectedUserId(userId);
+    setSelectedUserData({ username, avatarUrl });
+    setShowStatsModal(true);
+  };
+
+  const handleCloseStatsModal = () => {
+    setShowStatsModal(false);
+    setSelectedUserId(null);
+    setSelectedUserData(null);
   };
 
   const getTeamLogo = (logoUrl?: string): string => {
@@ -341,6 +360,21 @@ export default function ShowPicks() {
               value={selectedWeek}
               label="Semana"
               onChange={(e) => setSelectedWeek(e.target.value as number)}
+              MenuProps={{
+                anchorOrigin: {
+                  vertical: 'bottom',
+                  horizontal: 'left',
+                },
+                transformOrigin: {
+                  vertical: 'top',
+                  horizontal: 'left',
+                },
+                PaperProps: {
+                  style: {
+                    maxHeight: 300,
+                  },
+                },
+              }}
             >
               {availableWeeks.map((week) => (
                 <MenuItem key={week} value={week}>
@@ -388,11 +422,18 @@ export default function ShowPicks() {
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 } }}>
                         <Avatar 
                           src={pick.avatar_url || undefined}
+                          onClick={() => handleAvatarClick(pick.user_id, pick.username, pick.avatar_url)}
                           sx={{ 
                             width: { xs: 24, sm: 32 }, 
                             height: { xs: 24, sm: 32 }, 
                             bgcolor: 'primary.main', 
-                            fontSize: { xs: '0.75rem', sm: '1rem' } 
+                            fontSize: { xs: '0.75rem', sm: '1rem' },
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            '&:hover': {
+                              transform: 'scale(1.1)',
+                              boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+                            }
                           }}
                         >
                           {!pick.avatar_url && pick.username.charAt(0).toUpperCase()}
@@ -447,6 +488,14 @@ export default function ShowPicks() {
           </TableContainer>
         )}
       </Paper>
+
+      <UserStatsModal
+        open={showStatsModal}
+        onClose={handleCloseStatsModal}
+        userId={selectedUserId || ''}
+        username={selectedUserData?.username || ''}
+        avatarUrl={selectedUserData?.avatarUrl}
+      />
     </Box>
   );
 }

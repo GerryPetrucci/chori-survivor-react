@@ -22,6 +22,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { userProfilesService, seasonsService } from '../services/supabase';
 import { supabase } from '../config/supabase';
+import UserStatsModal from '../components/ui/UserStatsModal';
 
 interface RankingEntry {
   position: number;
@@ -45,6 +46,9 @@ export default function RankingPage() {
   const [filter, setFilter] = useState<'General' | 'Pool Principal' | 'Last Chance'>('General');
   const [showUserEntries, setShowUserEntries] = useState(false);
   const [userEntries, setUserEntries] = useState<RankingEntry[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedUserData, setSelectedUserData] = useState<{ username: string; avatarUrl?: string } | null>(null);
+  const [showStatsModal, setShowStatsModal] = useState(false);
 
   // Función para obtener el emoji de la posición
   const getPositionDisplay = (position: number) => {
@@ -265,6 +269,18 @@ export default function RankingPage() {
     setShowUserEntries(!showUserEntries);
   };
 
+  const handleAvatarClick = (userId: string, username: string, avatarUrl?: string) => {
+    setSelectedUserId(userId);
+    setSelectedUserData({ username, avatarUrl });
+    setShowStatsModal(true);
+  };
+
+  const handleCloseStatsModal = () => {
+    setShowStatsModal(false);
+    setSelectedUserId(null);
+    setSelectedUserData(null);
+  };
+
   if (loading) {
     return (
       <Box>
@@ -356,13 +372,28 @@ export default function RankingPage() {
 
       <Paper sx={{ p: 3, mt: 3 }}>
         {/* Filtro */}
-        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <FormControl size="small" sx={{ minWidth: 180 }}>
+        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+          <FormControl size="small" sx={{ minWidth: { xs: 140, sm: 180 } }}>
             <InputLabel>Filtrar por</InputLabel>
             <Select
               value={filter}
               label="Filtrar por"
               onChange={(e) => setFilter(e.target.value as typeof filter)}
+              MenuProps={{
+                anchorOrigin: {
+                  vertical: 'bottom',
+                  horizontal: 'left',
+                },
+                transformOrigin: {
+                  vertical: 'top',
+                  horizontal: 'left',
+                },
+                PaperProps: {
+                  style: {
+                    maxHeight: 300,
+                  },
+                },
+              }}
             >
               <MenuItem value="General">General</MenuItem>
               <MenuItem value="Pool Principal">Pool Principal</MenuItem>
@@ -370,7 +401,7 @@ export default function RankingPage() {
             </Select>
           </FormControl>
 
-          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+          <Typography variant="h6" sx={{ fontWeight: 'bold', fontSize: { xs: '1rem', sm: '1.25rem' } }}>
             {filter} - Top {filteredData.length}
           </Typography>
         </Box>
@@ -410,7 +441,19 @@ export default function RankingPage() {
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 } }}>
                       <Avatar 
                         src={entry.avatar_url || undefined}
-                        sx={{ width: { xs: 24, sm: 32 }, height: { xs: 24, sm: 32 }, bgcolor: 'primary.main', fontSize: { xs: '0.75rem', sm: '1rem' } }}
+                        onClick={() => handleAvatarClick(entry.user_id, entry.username, entry.avatar_url)}
+                        sx={{ 
+                          width: { xs: 24, sm: 32 }, 
+                          height: { xs: 24, sm: 32 }, 
+                          bgcolor: 'primary.main', 
+                          fontSize: { xs: '0.75rem', sm: '1rem' },
+                          cursor: 'pointer',
+                          transition: 'transform 0.2s, box-shadow 0.2s',
+                          '&:hover': {
+                            transform: 'scale(1.1)',
+                            boxShadow: '0 4px 8px rgba(0,0,0,0.2)'
+                          }
+                        }}
                       >
                         {!entry.avatar_url && entry.username.charAt(0).toUpperCase()}
                       </Avatar>
@@ -466,6 +509,17 @@ export default function RankingPage() {
           </Box>
         )}
       </Paper>
+
+      {/* Modal de estadísticas del usuario */}
+      {selectedUserId && selectedUserData && (
+        <UserStatsModal
+          open={showStatsModal}
+          onClose={handleCloseStatsModal}
+          userId={selectedUserId}
+          username={selectedUserData.username}
+          avatarUrl={selectedUserData.avatarUrl}
+        />
+      )}
     </Box>
   );
 }
