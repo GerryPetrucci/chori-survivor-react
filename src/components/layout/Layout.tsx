@@ -450,16 +450,28 @@ export default function Layout() {
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
+          p: { xs: 1, sm: 2, md: 3 },
           width: { md: `calc(100% - ${drawerWidth}px)` },
           background: 'linear-gradient(180deg, #f8faff 0%, #f0f4ff 50%, #e8f2ff 100%)',
-          minHeight: '100vh'
+          minHeight: '100vh',
+          boxSizing: 'border-box'
         }}
       >
         <Toolbar />
         {/* Center page horizontally similar to Login page */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, mt: 2 }}>
-          <Box sx={{ width: '100%', maxWidth: 1100 }}>
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center', 
+          gap: { xs: 0.25, sm: 0.5 }, 
+          mt: { xs: 1, sm: 2 },
+          px: { xs: 0, sm: 1 }
+        }}>
+          <Box sx={{ 
+            width: '100%', 
+            maxWidth: 1100,
+            px: { xs: 0, sm: 1 }
+          }}>
             <Outlet />
           </Box>
         </Box>

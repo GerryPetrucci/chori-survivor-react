@@ -283,7 +283,6 @@ export default function RulesPage() {
             <strong>🚨 IMPORTANTE:</strong> Si no eliges pick antes de que inicie el último partido de la semana, se te asignará automáticamente un pick.
           </Typography>
         </Alert>
-        
         <List>
           <ListItem sx={{ backgroundColor: '#ffebee', borderRadius: 1, mb: 1 }}>
             <ListItemText 
@@ -341,9 +340,6 @@ export default function RulesPage() {
           </ListItem>
           <ListItem>
             <ListItemText primary="• Asegúrate de entender todas las reglas antes de participar." />
-          </ListItem>
-          <ListItem>
-            <ListItemText primary="• Revisa siempre tus picks antes de confirmar, no hay cambios permitidos." />
           </ListItem>
           <ListItem>
             <ListItemText primary="• El sistema de puntos se calcula automáticamente según las horas de anticipación." />

@@ -209,18 +209,26 @@ export default function ProfilePage() {
   };
 
   return (
-    <Box sx={{ width: '100%', maxWidth: 1200, mx: 'auto' }}>
+    <Box sx={{ 
+      width: '100%', 
+      maxWidth: 1200, 
+      mx: 'auto',
+      px: { xs: 1, sm: 2, md: 3 },
+      py: { xs: 1, sm: 2 }
+    }}>
       <Box
         sx={{
           background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          borderRadius: 3,
-          p: 3,
-          mb: 3,
+          borderRadius: { xs: 2, sm: 3 },
+          p: { xs: 2, sm: 3 },
+          mb: { xs: 2, sm: 3 },
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           color: 'white',
-          textAlign: 'center'
+          textAlign: 'center',
+          width: '100%',
+          boxSizing: 'border-box'
         }}
       >
         <Badge
@@ -278,9 +286,24 @@ export default function ProfilePage() {
             </Avatar>
           </Box>
         </Badge>
-        <Typography variant="h5" sx={{ mt: 2, fontWeight: 'bold' }}>{user?.username || 'Perfil'}</Typography>
+        <Typography 
+          variant="h5" 
+          sx={{ 
+            mt: 2, 
+            fontWeight: 'bold',
+            fontSize: { xs: '1.25rem', sm: '1.5rem' },
+            wordBreak: 'break-word'
+          }}
+        >
+          {user?.username || 'Perfil'}
+        </Typography>
       </Box>
-      <Paper sx={{ p: { xs: 1, sm: 3 }, mt: 3, width: '100%' }}>
+      <Paper sx={{ 
+        p: { xs: 1, sm: 2, md: 3 }, 
+        mt: { xs: 2, sm: 3 }, 
+        width: '100%',
+        boxSizing: 'border-box'
+      }}>
         <Tabs
           value={tabValue}
           onChange={handleTabChange}
@@ -289,11 +312,41 @@ export default function ProfilePage() {
           variant="scrollable"
           scrollButtons="auto"
           allowScrollButtonsMobile
-          sx={{ borderBottom: 1, borderColor: 'divider' }}
+          sx={{ 
+            borderBottom: 1, 
+            borderColor: 'divider',
+            minHeight: { xs: 48, sm: 48 },
+            '& .MuiTab-root': {
+              minWidth: { xs: 60, sm: 120 },
+              fontSize: { xs: '0.7rem', sm: '0.875rem' },
+              padding: { xs: '6px 8px', sm: '12px 16px' }
+            }
+          }}
         >
-          <Tab icon={<TrendingUp />} label="Estadísticas" />
-          <Tab icon={<Settings />} label="Configuración" />
-          <Tab icon={<Brightness4 />} label="Preferencias" />
+          <Tab 
+            icon={<TrendingUp sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }} />} 
+            label="Estadísticas"
+            sx={{ 
+              flexDirection: { xs: 'column', sm: 'row' },
+              gap: { xs: 0.25, sm: 0.5 }
+            }}
+          />
+          <Tab 
+            icon={<Settings sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }} />} 
+            label="Configuración"
+            sx={{ 
+              flexDirection: { xs: 'column', sm: 'row' },
+              gap: { xs: 0.25, sm: 0.5 }
+            }}
+          />
+          <Tab 
+            icon={<Brightness4 sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }} />} 
+            label="Preferencias"
+            sx={{ 
+              flexDirection: { xs: 'column', sm: 'row' },
+              gap: { xs: 0.25, sm: 0.5 }
+            }}
+          />
         </Tabs>
 
         <TabPanel value={tabValue} index={0}>
@@ -305,9 +358,17 @@ export default function ProfilePage() {
               </Typography>
             </Box>
           ) : userStats ? (
-            <Box sx={{ p: 3 }}>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, mb: 3 }}>
-                <Card sx={{ flex: '1 1 300px' }}>
+            <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
+              <Box sx={{ 
+                display: 'flex', 
+                flexWrap: 'wrap', 
+                gap: { xs: 1.5, sm: 2, md: 3 }, 
+                mb: { xs: 2, sm: 3 } 
+              }}>
+                <Card sx={{ 
+                  flex: { xs: '1 1 100%', md: '1 1 300px' },
+                  minWidth: 0
+                }}>
                   <CardContent>
                     <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1, sm: 2 }, flexWrap: 'wrap' }}>
                       <EmojiEvents sx={{ mr: 1, color: 'primary.main' }} />
@@ -350,11 +411,19 @@ export default function ProfilePage() {
                   </CardContent>
                 </Card>
 
-                <Card sx={{ flex: '1 1 300px' }}>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                      <Sports sx={{ mr: 1, color: 'primary.main' }} />
-                      <Typography variant="h6">Equipos Favoritos</Typography>
+                <Card sx={{ 
+                  flex: { xs: '1 1 100%', md: '1 1 300px' },
+                  minWidth: 0
+                }}>
+                  <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 3 } }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1, sm: 2 } }}>
+                      <Sports sx={{ mr: 1, color: 'primary.main', fontSize: { xs: '1.25rem', sm: '1.5rem' } }} />
+                      <Typography 
+                        variant="h6"
+                        sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}
+                      >
+                        Equipos Favoritos
+                      </Typography>
                     </Box>
                     {userStats.favoriteTeams.length > 0 ? (
                       userStats.favoriteTeams.map((team: any) => (
@@ -430,29 +499,46 @@ export default function ProfilePage() {
               Información de la Cuenta
             </Typography>
             
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 3 }}>
+            <Box sx={{ 
+              display: 'flex', 
+              flexWrap: 'wrap', 
+              gap: { xs: 1.5, sm: 2 }, 
+              mb: { xs: 2, sm: 3 } 
+            }}>
               <TextField
-                sx={{ flex: '1 1 250px' }}
+                sx={{ 
+                  flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 8px)', md: '1 1 250px' },
+                  minWidth: 0
+                }}
                 label="Nombre de Usuario"
                 value={user?.username || ''}
                 variant="outlined"
                 helperText="Este es tu nombre de usuario único"
                 InputProps={{ readOnly: true }}
+                size="small"
               />
               <TextField
-                sx={{ flex: '1 1 250px' }}
+                sx={{ 
+                  flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 8px)', md: '1 1 250px' },
+                  minWidth: 0
+                }}
                 label="Email"
                 value={user?.email || ''}
                 variant="outlined"
                 helperText="Email asociado a tu cuenta"
                 InputProps={{ readOnly: true }}
+                size="small"
               />
               <TextField
-                sx={{ flex: '1 1 250px' }}
+                sx={{ 
+                  flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 8px)', md: '1 1 250px' },
+                  minWidth: 0
+                }}
                 label="Tipo de Usuario"
                 value={user?.user_type === 'admin' ? 'Administrador' : 'Usuario'}
                 variant="outlined"
                 InputProps={{ readOnly: true }}
+                size="small"
               />
             </Box>
 
@@ -590,6 +676,13 @@ export default function ProfilePage() {
         onClose={() => setAvatarDialogOpen(false)}
         maxWidth="sm"
         fullWidth
+        sx={{
+          '& .MuiDialog-paper': {
+            m: { xs: 1, sm: 2 },
+            width: { xs: 'calc(100% - 16px)', sm: '100%' },
+            maxWidth: { xs: '400px', sm: '600px' }
+          }
+        }}
       >
         <DialogTitle>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -603,18 +696,21 @@ export default function ProfilePage() {
           </Typography>
           <Box sx={{ 
             display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fit, minmax(70px, 1fr))', 
-            gap: 2, 
-            mb: 3 
+            gridTemplateColumns: { 
+              xs: 'repeat(auto-fit, minmax(50px, 1fr))',
+              sm: 'repeat(auto-fit, minmax(70px, 1fr))'
+            }, 
+            gap: { xs: 1, sm: 2 }, 
+            mb: { xs: 2, sm: 3 }
           }}>
             {predefinedAvatars.map((avatar, index) => (
               <Avatar
                 key={index}
                 sx={{
-                  width: 60,
-                  height: 60,
+                  width: { xs: 45, sm: 60 },
+                  height: { xs: 45, sm: 60 },
                   cursor: 'pointer',
-                  fontSize: '1.5rem',
+                  fontSize: { xs: '1.2rem', sm: '1.5rem' },
                   border: selectedAvatar === avatar ? '3px solid' : '2px solid transparent',
                   borderColor: selectedAvatar === avatar ? 'primary.main' : 'transparent',
                   '&:hover': {

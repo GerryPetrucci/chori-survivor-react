@@ -1,20 +1,21 @@
-name: NFL Data Automation - Cron Jobs
+name: NFL Data Automation - Workflows Unificados
 
 on:
   schedule:
-    # Set current week: Martes y Jueves a las 5:00 AM CDMX (11:00 AM UTC)
+    # Martes y Jueves 5:00 AM CDMX (11:00 UTC) - Set current week
     - cron: '0 11 * * 2,4'
-    # Daily update: Todos los días a las 11:59 PM CDMX (5:59 AM UTC del día siguiente)
+    # Todos los días 11:59 PM CDMX (5:59 UTC del día siguiente) - Daily update
     - cron: '59 5 * * *'
-    # Update weekly odds: Todos los días a las 5:00 AM CDMX (11:00 AM UTC)
+    # Todos los días 5:00 AM CDMX (11:00 UTC) - Update weekly odds
     - cron: '0 11 * * *'
-  
+    # Lunes 17:00 CDMX (23:00 UTC) - Auto-assign picks
+    - cron: '0 23 * * 1'
 
-  # Permite ejecutar manualmente desde GitHub
+  # Permite ejecutar manualmente
   workflow_dispatch:
     inputs:
-      job:
-        description: 'Job to run'
+      task:
+        description: 'Tarea a ejecutar'
         required: true
         default: 'all'
         type: choice
@@ -23,131 +24,192 @@ on:
           - set-current-week
           - daily-update
           - update-weekly-odds
-          - save-weekly-team-records
+          - auto-assign-picks
+          - save-weekly-records
 
 jobs:
   set-current-week:
-    name: Update Current NFL Week
+    name: Actualizar Semana NFL
     runs-on: ubuntu-latest
-    # Solo ejecutar en el cron de martes/jueves o manualmente
-    if: github.event.schedule == '0 11 * * 2,4' || github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'set-current-week' || github.event.inputs.job == 'all')
+    if: |
+      github.event.schedule == '0 11 * * 2,4' || 
+      (github.event_name == 'workflow_dispatch' && 
+       (github.event.inputs.task == 'set-current-week' || github.event.inputs.task == 'all'))
+    
     steps:
-      - name: 📅 Set Current Week
+      - name: 📅 Actualizar semana actual
         run: |
-          echo "🔄 Calling set-current-week endpoint..."
+          echo "🔄 Actualizando semana actual NFL..."
+          
           response=$(curl -s -w "\n%{http_code}" -X POST \
-            https://${{ secrets.VERCEL_DOMAIN }}/api/set-current-week)
+            "https://${{ secrets.VERCEL_DOMAIN }}/api/set-current-week" \
+            --max-time 30)
+          
           http_code=$(echo "$response" | tail -n1)
           body=$(echo "$response" | head -n-1)
-          echo "HTTP Status: $http_code"
-          echo "Response: $body"
-          if [ $http_code -eq 200 ]; then
-            echo "✅ Current week updated successfully"
+          
+          echo "📡 HTTP Status: $http_code"
+          echo "📄 Response: $body"
+          
+          if [ "$http_code" = "200" ]; then
+            echo "✅ Semana actualizada exitosamente"
           else
-            echo "❌ Failed to update current week"
+            echo "❌ Error actualizando semana"
             exit 1
           fi
 
   daily-update:
-    name: Daily Matches and Picks Update
+    name: Actualización Diaria de Partidos
     runs-on: ubuntu-latest
-    # Solo ejecutar en el cron diario o manualmente
-    if: github.event.schedule == '59 5 * * *' || github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'daily-update' || github.event.inputs.job == 'all')
+    if: |
+      github.event.schedule == '59 5 * * *' || 
+      (github.event_name == 'workflow_dispatch' && 
+       (github.event.inputs.task == 'daily-update' || github.event.inputs.task == 'all'))
+    
     steps:
-      - name: 🏈 Daily Update (Matches + Picks)
+      - name: 🏈 Actualizar partidos diariamente
         run: |
-          echo "🔄 Calling daily-update endpoint..."
+          echo "🔄 Ejecutando actualización diaria de partidos..."
+          
           response=$(curl -s -w "\n%{http_code}" -X POST \
-            https://${{ secrets.VERCEL_DOMAIN }}/api/daily-update)
+            "https://${{ secrets.VERCEL_DOMAIN }}/api/update-matches" \
+            --max-time 60)
+          
           http_code=$(echo "$response" | tail -n1)
           body=$(echo "$response" | head -n-1)
-          echo "HTTP Status: $http_code"
-          echo "Response: $body"
-          if [ $http_code -eq 200 ]; then
-            echo "✅ Daily update completed successfully"
-            echo "$body" | jq '.'
+          
+          echo "📡 HTTP Status: $http_code"
+          echo "📄 Response: $body"
+          
+          if [ "$http_code" = "200" ]; then
+            echo "✅ Partidos actualizados exitosamente"
           else
-            echo "❌ Daily update failed"
+            echo "❌ Error actualizando partidos"
             exit 1
           fi
 
   update-weekly-odds:
-    name: Update Weekly Odds
+    name: Actualizar Momios Semanales
     runs-on: ubuntu-latest
-    # Solo ejecutar en el cron de 5 AM o manualmente
-    if: github.event.schedule == '0 11 * * *' || github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'update-weekly-odds' || github.event.inputs.job == 'all')
+    if: |
+      github.event.schedule == '0 11 * * *' || 
+      (github.event_name == 'workflow_dispatch' && 
+       (github.event.inputs.task == 'update-weekly-odds' || github.event.inputs.task == 'all'))
+    
     steps:
-      - name: 🎲 Update Weekly Odds
+      - name: 📊 Actualizar momios semanales
         run: |
-          echo "🔄 Calling update-weekly-odds-auto endpoint..."
+          echo "🔄 Actualizando momios semanales..."
+          
           response=$(curl -s -w "\n%{http_code}" -X POST \
-            https://${{ secrets.VERCEL_DOMAIN }}/api/update-weekly-odds-auto)
+            "https://${{ secrets.VERCEL_DOMAIN }}/api/update-weekly-odds-auto" \
+            --max-time 45)
+          
           http_code=$(echo "$response" | tail -n1)
           body=$(echo "$response" | head -n-1)
-          echo "HTTP Status: $http_code"
-          echo "Response: $body"
-          if [ $http_code -eq 200 ]; then
-            echo "✅ Weekly odds updated successfully"
-            echo "$body" | jq '.'
+          
+          echo "📡 HTTP Status: $http_code"
+          echo "📄 Response: $body"
+          
+          if [ "$http_code" = "200" ]; then
+            echo "✅ Momios actualizados exitosamente"
           else
-            echo "❌ Failed to update weekly odds"
+            echo "❌ Error actualizando momios"
             exit 1
           fi
 
-  auto-assign-last-game-picks:
-    name: Auto Assign Last Game Picks
+  auto-assign-picks:
+    name: Auto-Assign de Picks
     runs-on: ubuntu-latest
-    # Este job se ejecuta 5 minutos después de que el último partido empiece (dinámico)
-    # La ejecución se controla desde la lógica backend calculando la hora del último partido
-    # Para pruebas locales, descomenta esta línea:
-    # if: github.event_name == 'workflow_dispatch'
+    if: |
+      github.event.schedule == '0 23 * * 1' || 
+      (github.event_name == 'workflow_dispatch' && 
+       (github.event.inputs.task == 'auto-assign-picks' || github.event.inputs.task == 'all'))
+    
     steps:
-      - name: 🎯 Auto Assign Picks to Entries Without Selection
+      - name: 🎯 Ejecutar auto-assign de picks
         run: |
-          echo "🔄 Calling auto-assign-last-game-picks endpoint..."
+          echo "🔄 Ejecutando auto-assign de picks..."
+          
           response=$(curl -s -w "\n%{http_code}" -X POST \
-            https://${{ secrets.VERCEL_DOMAIN }}/api/auto-assign-last-game-picks)
+            "https://${{ secrets.VERCEL_DOMAIN }}/api/auto-assign-last-game-picks" \
+            --max-time 60)
+          
           http_code=$(echo "$response" | tail -n1)
           body=$(echo "$response" | head -n-1)
-          echo "HTTP Status: $http_code"
-          echo "Response: $body"
-          if [ $http_code -eq 200 ]; then
-            echo "✅ Auto-assign picks completed successfully"
-            echo "$body" | jq '.'
+          
+          echo "📡 HTTP Status: $http_code"
+          echo "📄 Response: $body"
+          
+          if [ "$http_code" = "200" ]; then
+            echo "✅ Auto-assign completado exitosamente"
+            
+            # Extraer información del resultado
+            picks_assigned=$(echo "$body" | jq -r '.picks_assigned // 0' 2>/dev/null || echo "0")
+            total_entries=$(echo "$body" | jq -r '.total_entries_without_picks // 0' 2>/dev/null || echo "0")
+            
+            echo "🎯 Picks asignados: $picks_assigned de $total_entries entradas"
           else
-            echo "❌ Auto-assign picks failed"
+            echo "❌ Error en auto-assign"
             exit 1
           fi
 
-  save-weekly-team-records:
-    name: Save Weekly Team Records
+  save-weekly-records:
+    name: Guardar Records Semanales
     runs-on: ubuntu-latest
-    # Ejecutar cada martes a las 00:00 AM UTC (después de la semana NFL)
-    # El job SIEMPRE corre en el cron, y solo filtra por if cuando es ejecución manual
-    if: github.event_name != 'workflow_dispatch' || github.event.inputs.job == 'save-weekly-team-records' || github.event.inputs.job == 'all'
+    if: |
+      github.event_name == 'workflow_dispatch' && 
+      (github.event.inputs.task == 'save-weekly-records' || github.event.inputs.task == 'all')
+    
     steps:
-      - name: 🏈 Save Weekly Team Records
+      - name: 📊 Obtener información de temporada
+        id: season-info
         run: |
-          echo "🔄 Calling save-weekly-team-records endpoint..."
-          YEAR=$(date +'%Y')
-          SEASON_INFO=$(curl -s "https://${{ secrets.VERCEL_DOMAIN }}/api/current-week")
-          WEEK=$(echo "$SEASON_INFO" | jq -r '.current_week // 1')
-          WEEK_TO_SAVE=$((WEEK-1))
-          if [ "$WEEK_TO_SAVE" -lt 1 ]; then
-            echo "No hay semana anterior para guardar."
-            exit 0
+          echo "🔍 Obteniendo información de la temporada actual..."
+          
+          season_info=$(curl -s "https://${{ secrets.VERCEL_DOMAIN }}/api/current-week" --max-time 30)
+          
+          if [ $? -eq 0 ]; then
+            year=$(echo "$season_info" | jq -r '.year // 2024' 2>/dev/null || echo "2024")
+            week=$(echo "$season_info" | jq -r '.week // 1' 2>/dev/null || echo "1")
+            
+            # Calcular semana anterior para guardar records
+            week_to_save=$((week - 1))
+            if [ $week_to_save -lt 1 ]; then
+              week_to_save=1
+            fi
+            
+            echo "year=$year" >> $GITHUB_OUTPUT
+            echo "week_to_save=$week_to_save" >> $GITHUB_OUTPUT
+            
+            echo "📅 Año: $year"
+            echo "📊 Semana a guardar: $week_to_save"
+          else
+            echo "❌ Error obteniendo información de temporada"
+            echo "year=2024" >> $GITHUB_OUTPUT
+            echo "week_to_save=1" >> $GITHUB_OUTPUT
           fi
-          echo "Guardando récords para año $YEAR, semana $WEEK_TO_SAVE"
+      
+      - name: 💾 Guardar records semanales
+        run: |
+          echo "🔄 Guardando records semanales..."
+          
+          year="${{ steps.season-info.outputs.year }}"
+          week_to_save="${{ steps.season-info.outputs.week_to_save }}"
+          
           response=$(curl -s -w "\n%{http_code}" -X POST \
-            "https://${{ secrets.VERCEL_DOMAIN }}/api/save-weekly-team-records?year=$YEAR&week=$WEEK_TO_SAVE")
+            "https://${{ secrets.VERCEL_DOMAIN }}/api/save-weekly-team-records?year=$year&week=$week_to_save" \
+            --max-time 45)
+          
           http_code=$(echo "$response" | tail -n1)
           body=$(echo "$response" | head -n-1)
-          echo "HTTP Status: $http_code"
-          echo "Response: $body"
-          if [ $http_code -eq 200 ]; then
-            echo "✅ Weekly team records saved successfully"
+          
+          echo "📡 HTTP Status: $http_code"
+          echo "📄 Response: $body"
+          
+          if [ "$http_code" = "200" ]; then
+            echo "✅ Records guardados exitosamente"
           else
-            echo "❌ Failed to save weekly team records"
+            echo "❌ Error guardando records"
             exit 1
           fi
-

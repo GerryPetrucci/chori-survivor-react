@@ -220,20 +220,27 @@ const Trends: React.FC = () => {
   }
 
   return (
-    <Box sx={{ width: '100%', maxWidth: 1200, mx: 'auto' }}>
+    <Box sx={{ 
+      width: '100%', 
+      maxWidth: 1200, 
+      mx: 'auto',
+      px: { xs: 1, sm: 2, md: 3 },
+      py: { xs: 1, sm: 2 }
+    }}>
       {/* Header con gradiente */}
       <Box
         sx={{
           background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          borderRadius: 3,
+          borderRadius: { xs: 2, sm: 3 },
           p: { xs: 2, sm: 3 },
-          mb: 3,
+          mb: { xs: 2, sm: 3 },
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           color: 'white',
           textAlign: 'center',
-          width: '100%'
+          width: '100%',
+          boxSizing: 'border-box'
         }}
       >
         <Typography variant="h4" gutterBottom fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' }, flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -246,9 +253,22 @@ const Trends: React.FC = () => {
       </Box>
 
       {/* Contenedor principal con Tabs */}
-  <Paper sx={{ p: { xs: 1, sm: 3 }, mt: 3, width: '100%' }}>
+      <Paper sx={{ 
+        p: { xs: 1, sm: 2, md: 3 }, 
+        mt: { xs: 2, sm: 3 }, 
+        width: '100%',
+        boxSizing: 'border-box'
+      }}>
         {/* Controles superiores */}
-  <Box sx={{ p: { xs: 1, sm: 2 }, display: 'flex', justifyContent: { xs: 'center', sm: 'flex-end' }, borderBottom: 1, borderColor: 'divider', flexWrap: 'wrap', gap: 1 }}>
+        <Box sx={{ 
+          p: { xs: 1, sm: 2 }, 
+          display: 'flex', 
+          justifyContent: { xs: 'center', sm: 'flex-end' }, 
+          borderBottom: 1, 
+          borderColor: 'divider', 
+          flexWrap: 'wrap', 
+          gap: 1 
+        }}>
           <FormControl sx={{ minWidth: { xs: 120, sm: 150, md: 200 } }} size="small">
             <InputLabel id="week-select-label">Semana</InputLabel>
             <Select
@@ -282,12 +302,22 @@ const Trends: React.FC = () => {
           variant="scrollable"
           scrollButtons="auto"
           allowScrollButtonsMobile
-          sx={{ borderBottom: 1, borderColor: 'divider', minHeight: { xs: 32, sm: 48 }, fontSize: { xs: '0.9rem', sm: '1rem' } }}
+          sx={{ 
+            borderBottom: 1, 
+            borderColor: 'divider', 
+            minHeight: { xs: 40, sm: 48 },
+            '& .MuiTab-root': {
+              fontSize: { xs: '0.65rem', sm: '0.875rem' },
+              minWidth: { xs: 60, sm: 120 },
+              px: { xs: 0.5, sm: 2 },
+              py: { xs: 1, sm: 1.5 }
+            }
+          }}
         >
-          <Tab label="Estadísticas de Equipos" {...a11yProps(0)} sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, minWidth: { xs: 80, sm: 120 }, px: { xs: 1, sm: 2 } }} />
-          <Tab label="Distribución de Picks" {...a11yProps(1)} sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, minWidth: { xs: 80, sm: 120 }, px: { xs: 1, sm: 2 } }} />
-          <Tab label="Tendencias Semanales" {...a11yProps(2)} sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, minWidth: { xs: 80, sm: 120 }, px: { xs: 1, sm: 2 } }} />
-          <Tab label="Análisis de Riesgo" {...a11yProps(3)} sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, minWidth: { xs: 80, sm: 120 }, px: { xs: 1, sm: 2 } }} />
+          <Tab label="Estadísticas" {...a11yProps(0)} />
+          <Tab label="Distribución" {...a11yProps(1)} />
+          <Tab label="Tendencias" {...a11yProps(2)} />
+          <Tab label="Riesgo" {...a11yProps(3)} />
         </Tabs>
 
         {/* Contenido de las tabs */}
@@ -362,7 +392,8 @@ const Trends: React.FC = () => {
           {trendsData.selectedWeek ? `Semana ${trendsData.selectedWeek}` : 'Todas las Semanas'}
         </Typography>
         {trendsData.pickDistribution && trendsData.pickDistribution.length > 0 ? (
-          <ResponsiveContainer width="100%" height={400}>
+          <Box sx={{ width: '100%', height: { xs: 300, sm: 350, md: 400 } }}>
+            <ResponsiveContainer width="100%" height="100%">
             <BarChart data={trendsData.pickDistribution.map(team => ({
               ...team,
               // Preferir el loss_count calculado en backend; si no existe, usar fallback solo cuando win_count esté definido
@@ -401,7 +432,8 @@ const Trends: React.FC = () => {
                 </>
               )}
             </BarChart>
-          </ResponsiveContainer>
+            </ResponsiveContainer>
+          </Box>
         ) : (
           <Alert severity="info">
             No hay datos de distribución de picks para {trendsData.selectedWeek ? `la semana ${trendsData.selectedWeek}` : 'las semanas seleccionadas'}
@@ -413,8 +445,9 @@ const Trends: React.FC = () => {
         <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
           Tendencias de Actividad Semanal
         </Typography>
-        <ResponsiveContainer width="100%" height={400}>
-          <AreaChart data={trendsData.weeklyTrends}>
+        <Box sx={{ width: '100%', height: { xs: 300, sm: 350, md: 400 } }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={trendsData.weeklyTrends}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="week" style={{ fontSize: '12px' }} />
             <YAxis style={{ fontSize: '12px' }} />
@@ -434,8 +467,9 @@ const Trends: React.FC = () => {
               fill={chartColors[1]}
               name="Picks Correctos"
             />
-          </AreaChart>
-        </ResponsiveContainer>
+            </AreaChart>
+          </ResponsiveContainer>
+        </Box>
       </TabPanel>
 
       <TabPanel value={tabValue} index={3}>
