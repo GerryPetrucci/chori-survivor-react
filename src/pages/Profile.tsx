@@ -45,6 +45,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useState, useEffect } from 'react';
 import { statsService, userProfilesService, storageService } from '../services/supabase';
+import { supabase } from '../config/supabase';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -154,6 +155,15 @@ export default function ProfilePage() {
 
     try {
       if (!user?.id) return;
+
+      // Chequeo de sesión y token antes de subir
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      console.log('Supabase session:', sessionData, 'Session error:', sessionError);
+      if (!sessionData?.session) {
+        alert('No hay sesión activa. Por favor, vuelve a iniciar sesión.');
+        return;
+      }
+      console.log('Access token:', sessionData.session.access_token);
 
       // Subir imagen a Supabase Storage
       const { data: uploadData, error: uploadError } = await storageService.uploadAvatar(user.id, file);

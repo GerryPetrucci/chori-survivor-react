@@ -1764,5 +1764,92 @@ async def get_auto_assign_schedule():
         logger.error(f"❌ GET SCHEDULE ERROR: {e}")
         raise HTTPException(status_code=500, detail=f"Error obteniendo schedule: {str(e)}")
 
-# Para Vercel, el objeto app es el handler
+# =====================================================
+# ENDPOINT PARA PROGRAMACIÓN DE AUTO-ASSIGN SEMANAL
+# =====================================================
+
+@app.get("/schedule-weekly-auto-assign")
+async def schedule_weekly_auto_assign():
+    """
+    Se ejecuta los LUNES a las 17:00 CDMX para obtener el horario del último partido de la semana.
+    Retorna cuándo debe ejecutarse el auto-assign (último_partido + 5 minutos).
+    """
+    try:
+        logger.info("🗓️ PROGRAMANDO AUTO-ASSIGN SEMANAL...")
+        
+        # Obtener temporada activa y semana actual
+        season_query = supabase.table("seasons").select("*").eq("is_active", True).execute()
+        if not season_query.data:
+            return {"error": "No hay temporada activa", "schedule": None}
+        
+        current_season = season_query.data[0]
+        season_id = current_season['id']
+        current_week = current_season.get('current_week', 1)
+        
+        # Obtener el último partido de la semana actual (por hora de inicio)
+        matches_query = supabase.table("matches").select(
+            "id, home_team_id, away_team_id, game_date, week, status"
+        ).eq("season_id", season_id).eq("week", current_week).order("game_date", desc=True).limit(1).execute()
+        
+        if not matches_query.data:
+            return {"error": f"No hay partidos para la semana {current_week}", "schedule": None}
+        
+        last_match = matches_query.data[0]
+        
+        try:
+            game_date_str = last_match['game_date']
+            if isinstance(game_date_str, str):
+                try:
+                    game_dt = datetime.strptime(game_date_str, "%Y-%m-%dT%H:%M:%S")
+                except ValueError:
+                    game_dt = datetime.strptime(game_date_str, "%Y-%m-%d %H:%M:%S")
+            else:
+                game_dt = game_date_str
+            
+            # Localizar a CDMX si no tiene timezone
+            if game_dt.tzinfo is None:
+                game_dt = CDMX_TZ.localize(game_dt)
+            else:
+                game_dt = game_dt.astimezone(CDMX_TZ)
+            
+            # Tiempo de ejecución: último_kickoff + 5 minutos
+            execution_time_cdmx = game_dt + timedelta(minutes=5)
+            execution_time_utc = execution_time_cdmx.astimezone(pytz.utc)
+            
+            # Calcular si ya debe ejecutarse
+            now_cdmx = datetime.now(CDMX_TZ)
+            should_execute_now = now_cdmx >= execution_time_cdmx
+            minutes_until = (execution_time_cdmx - now_cdmx).total_seconds() / 60
+            
+            logger.info(f"📊 ÚLTIMO PARTIDO: {game_dt.strftime('%Y-%m-%d %H:%M CDMX')}")
+            logger.info(f"⏰ AUTO-ASSIGN PROGRAMADO: {execution_time_cdmx.strftime('%Y-%m-%d %H:%M CDMX')}")
+            
+            return {
+                "season_id": season_id,
+                "current_week": current_week,
+                "last_match": {
+                    "id": last_match['id'],
+                    "kickoff_cdmx": game_dt.isoformat(),
+                    "home_team_id": last_match['home_team_id'],
+                    "away_team_id": last_match['away_team_id'],
+                    "status": last_match.get('status', 'scheduled')
+                },
+                "execution_schedule": {
+                    "execution_time_cdmx": execution_time_cdmx.isoformat(),
+                    "execution_time_utc": execution_time_utc.isoformat(),
+                    "timestamp_utc": int(execution_time_utc.timestamp()),
+                    "should_execute_now": should_execute_now,
+                    "minutes_until_execution": round(minutes_until, 2)
+                },
+                "current_time_cdmx": now_cdmx.isoformat(),
+                "message": f"Auto-assign programado para {execution_time_cdmx.strftime('%A %d/%m/%Y a las %H:%M CDMX')}"
+            }
+            
+        except Exception as e:
+            logger.error(f"Error parseando fechas: {e}")
+            return {"error": f"Error parseando fechas: {str(e)}", "schedule": None}
+        
+        except Exception as e:
+            logger.error(f"❌ ERROR PROGRAMACIÓN AUTO-ASSIGN: {e}")
+            return {"error": str(e), "schedule": None}# Para Vercel, el objeto app es el handler
 # Vercel automáticamente detecta FastAPI y lo ejecuta
