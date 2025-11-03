@@ -8,8 +8,8 @@ on:
     - cron: '59 5 * * *'
     # Todos los días 5:00 AM CDMX (11:00 UTC) - Update weekly odds
     - cron: '0 11 * * *'
-    # Lunes 17:30 CDMX (23:30 UTC) - Auto-assign weekly picks
-    - cron: '30 23 * * 1'
+    # Lunes 18:00 CDMX (00:00 UTC martes) - Auto-assign weekly picks
+    - cron: '0 0 * * 2'
 
   # Permite ejecutar manualmente
   workflow_dispatch:
@@ -233,7 +233,7 @@ jobs:
     name: Auto-Assign Picks Semanal
     runs-on: ubuntu-latest
     if: |
-      github.event.schedule == '30 23 * * 1' || 
+      github.event.schedule == '0 0 * * 2' || 
       (github.event_name == 'workflow_dispatch' && 
        (github.event.inputs.task == 'auto-assign-picks' || github.event.inputs.task == 'all'))
     
@@ -241,13 +241,13 @@ jobs:
       - name: 📅 Log inicio
         run: |
           echo "🚀 AUTO-ASSIGN SEMANAL DE PICKS"
-          echo "📅 Fecha: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          echo "📅 Fecha inicio: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
           echo "🎯 Workflow: ${{ github.run_id }}"
       
-      - name: 📊 Consultar programación
-        id: check-schedule
+      - name: 📊 Obtener horario del último partido
+        id: get-schedule
         run: |
-          echo "🔍 Consultando programación del auto-assign..."
+          echo "🔍 Consultando horario del último partido de la semana..."
           
           response=$(curl -s -w "\n%{http_code}" -X GET \
             "https://${{ secrets.VERCEL_DOMAIN }}/api/schedule-weekly-auto-assign" \
@@ -259,46 +259,63 @@ jobs:
           echo "📡 HTTP Status: $http_code"
           echo "📄 Response: $body"
           
-          should_execute="false"
-          
           if [ "$http_code" = "200" ]; then
-            should_execute_now=$(echo "$body" | jq -r '.execution_schedule.should_execute_now // false' 2>/dev/null || echo "false")
-            minutes_until=$(echo "$body" | jq -r '.execution_schedule.minutes_until_execution // 999' 2>/dev/null || echo "999")
+            minutes_until_raw=$(echo "$body" | jq -r '.execution_schedule.minutes_until_execution // 0' 2>/dev/null || echo "0")
+            minutes_until=$(printf "%.0f" "$minutes_until_raw" 2>/dev/null || echo "0")
             execution_time=$(echo "$body" | jq -r '.execution_schedule.execution_time_cdmx // "unknown"' 2>/dev/null || echo "unknown")
             current_week=$(echo "$body" | jq -r '.current_week // 0' 2>/dev/null || echo "0")
             last_match_kickoff=$(echo "$body" | jq -r '.last_match.kickoff_cdmx // "unknown"' 2>/dev/null || echo "unknown")
             
-            echo "⏰ Tiempo programado: $execution_time"
-            echo "🏈 Último partido: $last_match_kickoff"
-            echo "📅 Semana: $current_week"
-            echo "⏳ Minutos restantes: $minutes_until"
-            echo "✅ ¿Debe ejecutarse ahora?: $should_execute_now"
+            echo "🏈 Último partido inicia: $last_match_kickoff"
+            echo "⏰ Auto-assign programado para: $execution_time (5 min después)"
+            echo "📅 Semana NFL: $current_week"
+            echo "⏳ Minutos de espera: $minutes_until"
             
-            # Lógica para determinar ejecución
-            if [ "${{ github.event.inputs.force_execution }}" = "true" ]; then
-              should_execute="true"
-              echo "🚀 Ejecución forzada por parámetro manual"
-            elif [ "$should_execute_now" = "true" ]; then
-              should_execute="true"
-              echo "✅ Es momento de ejecutar según programación"
-            elif [ "$minutes_until" != "999" ] && [ "$minutes_until" -le 30 ] && [ "$minutes_until" -ge -30 ]; then
-              should_execute="true"
-              echo "⚡ Dentro de ventana de 30 minutos, ejecutando"
-            else
-              echo "⏸️ No es momento de ejecutar. Esperando a $execution_time"
-            fi
+            # Guardar valores para el siguiente step
+            echo "minutes_until=$minutes_until" >> $GITHUB_OUTPUT
+            echo "execution_time=$execution_time" >> $GITHUB_OUTPUT
+            echo "current_week=$current_week" >> $GITHUB_OUTPUT
+            echo "last_match_kickoff=$last_match_kickoff" >> $GITHUB_OUTPUT
           else
             echo "❌ Error consultando programación"
-            echo "🤔 Ejecutando de todas formas por ser lunes"
-            should_execute="true"
+            exit 1
           fi
-          
-          echo "should_execute=$should_execute" >> $GITHUB_OUTPUT
       
-      - name: 🎯 Ejecutar auto-assign
-        if: steps.check-schedule.outputs.should_execute == 'true'
+      - name: ⏰ Esperar hasta momento de ejecución
+        run: |
+          minutes_until=${{ steps.get-schedule.outputs.minutes_until }}
+          execution_time="${{ steps.get-schedule.outputs.execution_time }}"
+          
+          # Si force_execution está activado, no esperar
+          if [ "${{ github.event.inputs.force_execution }}" = "true" ]; then
+            echo "🚀 Ejecución forzada - omitiendo espera"
+          elif [ "$minutes_until" -le 0 ]; then
+            echo "✅ Ya pasó el tiempo de ejecución - ejecutando inmediatamente"
+          else
+            # Máximo 6 horas de espera (360 minutos) para evitar timeout de GitHub Actions
+            if [ "$minutes_until" -gt 360 ]; then
+              echo "⚠️ Tiempo de espera ($minutes_until min) excede límite de 6 horas"
+              echo "❌ El workflow debe ejecutarse más cerca del horario del partido"
+              exit 1
+            fi
+            
+            # Convertir minutos a segundos
+            seconds_to_wait=$((minutes_until * 60))
+            
+            echo "⏳ Esperando $minutes_until minutos ($seconds_to_wait segundos) hasta $execution_time..."
+            echo "🕐 Inicio de espera: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+            
+            # Esperar
+            sleep $seconds_to_wait
+            
+            echo "✅ Espera completada"
+            echo "🕐 Fin de espera: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          fi
+      
+      - name: 🎯 Ejecutar auto-assign de picks
         run: |
           echo "🚀 EJECUTANDO AUTO-ASSIGN DE PICKS"
+          echo "🕐 Hora de ejecución: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
           
           # Ejecutar con reintentos
           max_retries=3
@@ -327,14 +344,14 @@ jobs:
               total_entries=$(echo "$body" | jq -r '.total_entries_without_picks // 0' 2>/dev/null || echo "0")
               week=$(echo "$body" | jq -r '.week // 0' 2>/dev/null || echo "0")
               
-              echo "📊 Resultado exitoso:"
-              echo "🎯 Picks asignados: $picks_assigned"
-              echo "📋 Total de entradas: $total_entries"
-              echo "📅 Semana: $week"
+              echo "📊 RESULTADO:"
+              echo "   🎯 Picks asignados: $picks_assigned"
+              echo "   📋 Entradas sin pick: $total_entries"
+              echo "   📅 Semana: $week"
             else
               retry_count=$((retry_count + 1))
               if [ $retry_count -lt $max_retries ]; then
-                echo "⚠️ Intento fallido, reintentando en 20 segundos..."
+                echo "⚠️ Intento fallido, esperando 20 segundos antes de reintentar..."
                 sleep 20
               fi
             fi
@@ -345,38 +362,16 @@ jobs:
             exit 1
           fi
       
-      - name: 🔄 Auto-update picks (post-procesamiento)
-        if: steps.check-schedule.outputs.should_execute == 'true'
-        run: |
-          echo "⏳ Esperando 30 segundos antes de auto-update..."
-          sleep 30
-          
-          echo "🔄 Ejecutando auto-update-picks..."
-          
-          response=$(curl -s -w "\n%{http_code}" -X POST \
-            "https://${{ secrets.VERCEL_DOMAIN }}/api/auto-update-picks" \
-            --max-time 45)
-          
-          http_code=$(echo "$response" | tail -n1)
-          body=$(echo "$response" | head -n-1)
-          
-          echo "📡 Auto-update Status: $http_code"
-          echo "📄 Response: $body"
-          
-          if [ "$http_code" = "200" ]; then
-            echo "✅ Auto-update completado exitosamente"
-          else
-            echo "⚠️ Auto-update retornó status: $http_code (no crítico)"
-          fi
-      
-      - name: 📋 Resumen final
+      - name:  Resumen final
         if: always()
         run: |
           echo "📋 RESUMEN DE AUTO-ASSIGN SEMANAL"
           echo "================================="
           echo "🆔 Workflow: ${{ github.run_id }}"
-          echo "📅 Fecha: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          echo "📅 Fecha final: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          echo "� Último partido: ${{ steps.get-schedule.outputs.last_match_kickoff }}"
+          echo "⏰ Tiempo de ejecución: ${{ steps.get-schedule.outputs.execution_time }}"
+          echo "📅 Semana NFL: ${{ steps.get-schedule.outputs.current_week }}"
           echo "🎯 Forzado: ${{ github.event.inputs.force_execution || 'false' }}"
-          echo "⚡ Ejecutado: ${{ steps.check-schedule.outputs.should_execute }}"
           echo ""
           echo "🔗 Detalles: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
