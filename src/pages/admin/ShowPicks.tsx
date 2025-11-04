@@ -212,7 +212,7 @@ export default function ShowPicks() {
             username: userData.username,
             user_id: entry.user_id,
             avatar_url: userData.avatar_url,
-            team_name: 'Sin pick',
+            team_name: '-',
             team_abbreviation: '—',
             logo_url: '',
             is_active: entry.is_active
@@ -454,7 +454,7 @@ export default function ShowPicks() {
                     <TableCell align="center">
                       {pick.id === 0 ? (
                         <Typography variant="body2" color="warning.main" fontWeight="bold" sx={{ fontSize: '0.875rem' }}>
-                          Sin pick
+                          -
                         </Typography>
                       ) : (
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
