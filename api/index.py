@@ -1705,7 +1705,7 @@ async def auto_assign_last_game_picks():
                 "selected_team_id": assigned_team_id,
                 "week": current_week,
                 "season_id": season_id,
-                "confidence": 0,  # Auto-assigned
+                "confidence": 1,  # Auto-assigned (minimum valid value)
                 "result": "pending",
                 "created_at": pick_datetime.isoformat()
             }
