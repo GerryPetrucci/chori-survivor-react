@@ -10,6 +10,8 @@ on:
     - cron: '0 11 * * *'
     # Lunes 17:45 CDMX (11:45 UTC lunes) - Auto-assign weekly picks
     - cron: '45 11 * * 1'
+    # Domingos 5:00 AM CDMX (11:00 UTC domingo) - Update live scores
+    - cron: '0 11 * * 0'
 
   # Permite ejecutar manualmente
   workflow_dispatch:
@@ -27,6 +29,7 @@ on:
           - auto-update-picks
           - auto-assign-picks
           - save-weekly-records
+          - update-live-scores
       force_execution:
         description: 'Forzar ejecución auto-assign (ignora validación de horario)'
         required: false
@@ -373,5 +376,204 @@ jobs:
           echo "⏰ Tiempo de ejecución: ${{ steps.get-schedule.outputs.execution_time }}"
           echo "📅 Semana NFL: ${{ steps.get-schedule.outputs.current_week }}"
           echo "🎯 Forzado: ${{ github.event.inputs.force_execution || 'false' }}"
+          echo ""
+          echo "🔗 Detalles: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+  update-live-scores:
+    name: Actualización de Scores en Vivo (Domingos)
+    runs-on: ubuntu-latest
+    if: |
+      github.event.schedule == '0 11 * * 0' || 
+      (github.event_name == 'workflow_dispatch' && 
+       (github.event.inputs.task == 'update-live-scores' || github.event.inputs.task == 'all'))
+    
+    steps:
+      - name: 📅 Log inicio
+        run: |
+          echo "🚀 UPDATE LIVE SCORES - DOMINGOS NFL"
+          echo "📅 Fecha inicio: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          echo "🎯 Workflow: ${{ github.run_id }}"
+      
+      - name: 📊 Obtener horarios de partidos del domingo
+        id: get-sunday-schedule
+        run: |
+          echo "🔍 Consultando horarios de partidos del domingo..."
+          
+          response=$(curl -s -w "\n%{http_code}" -X GET \
+            "https://${{ secrets.VERCEL_DOMAIN }}/api/get-sunday-matches-schedule" \
+            --max-time 30)
+          
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n-1)
+          
+          echo "📡 HTTP Status: $http_code"
+          echo "📄 Response: $body"
+          
+          if [ "$http_code" = "200" ]; then
+            first_match_kickoff=$(echo "$body" | jq -r '.first_match.kickoff_cdmx // "unknown"' 2>/dev/null || echo "unknown")
+            last_match_kickoff=$(echo "$body" | jq -r '.last_match.kickoff_cdmx // "unknown"' 2>/dev/null || echo "unknown")
+            sunday_matches_count=$(echo "$body" | jq -r '.sunday_matches_count // 0' 2>/dev/null || echo "0")
+            minutes_until_first=$(echo "$body" | jq -r '.minutes_until_first_match // 0' 2>/dev/null || echo "0")
+            current_week=$(echo "$body" | jq -r '.current_week // 0' 2>/dev/null || echo "0")
+            
+            echo "🏈 Partidos del domingo: $sunday_matches_count"
+            echo "⏰ Primer partido: $first_match_kickoff"
+            echo "⏰ Último partido: $last_match_kickoff"
+            echo "📅 Semana NFL: $current_week"
+            echo "⏳ Minutos hasta primer partido: $minutes_until_first"
+            
+            # Guardar valores para los siguientes steps
+            echo "first_match_kickoff=$first_match_kickoff" >> $GITHUB_OUTPUT
+            echo "last_match_kickoff=$last_match_kickoff" >> $GITHUB_OUTPUT
+            echo "sunday_matches_count=$sunday_matches_count" >> $GITHUB_OUTPUT
+            echo "minutes_until_first=$minutes_until_first" >> $GITHUB_OUTPUT
+            echo "current_week=$current_week" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Error consultando programación"
+            exit 1
+          fi
+      
+      - name: ⏰ Esperar hasta el primer partido del domingo
+        run: |
+          minutes_until_first=${{ steps.get-sunday-schedule.outputs.minutes_until_first }}
+          first_match_kickoff="${{ steps.get-sunday-schedule.outputs.first_match_kickoff }}"
+          
+          if [ "$minutes_until_first" -le 0 ]; then
+            echo "✅ El primer partido ya comenzó o está por comenzar - ejecutando inmediatamente"
+          else
+            # Máximo 6 horas de espera (360 minutos) para evitar timeout de GitHub Actions
+            if [ "$minutes_until_first" -gt 360 ]; then
+              echo "⚠️ Tiempo de espera ($minutes_until_first min) excede límite de 6 horas"
+              echo "❌ El workflow debe ejecutarse más cerca del horario del partido"
+              exit 1
+            fi
+            
+            # Convertir minutos a segundos
+            seconds_to_wait=$((minutes_until_first * 60))
+            
+            echo "⏳ Esperando $minutes_until_first minutos ($seconds_to_wait segundos) hasta $first_match_kickoff..."
+            echo "🕐 Inicio de espera: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+            
+            # Esperar
+            sleep $seconds_to_wait
+            
+            echo "✅ Espera completada"
+            echo "🕐 Fin de espera: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          fi
+      
+      - name: 🔄 Loop de actualización de scores en vivo
+        run: |
+          echo "🚀 INICIANDO LOOP DE ACTUALIZACIÓN DE SCORES EN VIVO"
+          echo "⏰ Se ejecutará cada 2 minutos"
+          
+          last_match_kickoff="${{ steps.get-sunday-schedule.outputs.last_match_kickoff }}"
+          
+          # Convertir last_match_kickoff a timestamp Unix para comparación
+          last_match_timestamp=$(date -d "$last_match_kickoff" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%S" "$last_match_kickoff" +%s 2>/dev/null || echo "0")
+          
+          echo "🏈 Último partido del domingo inicia a las: $last_match_kickoff"
+          
+          iteration=0
+          max_iterations=540  # Máximo 540 iteraciones = 18 horas (540 * 2 min = 1080 min = 18 horas)
+          
+          while [ $iteration -lt $max_iterations ]; do
+            iteration=$((iteration + 1))
+            echo ""
+            echo "🔄 Iteración #$iteration - $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+            
+            # Obtener hora actual en formato ISO
+            current_time=$(date -u +"%Y-%m-%dT%H:%M:%S")
+            current_timestamp=$(date +%s)
+            
+            # Verificar si ya pasó el kickoff del último partido
+            last_match_started=false
+            if [ "$current_timestamp" -ge "$last_match_timestamp" ]; then
+              last_match_started=true
+              echo "✅ Ya pasó el kickoff del último partido del domingo"
+            fi
+            
+            # Ejecutar actualización de scores
+            response=$(curl -s -w "\n%{http_code}" -X POST \
+              "https://${{ secrets.VERCEL_DOMAIN }}/api/update-live-scores" \
+              --max-time 30)
+            
+            http_code=$(echo "$response" | tail -n1)
+            body=$(echo "$response" | head -n-1)
+            
+            echo "📡 HTTP Status: $http_code"
+            
+            # Si el status code no es 200, verificar si ya pasó el último partido
+            if [ "$http_code" != "200" ]; then
+              if [ "$last_match_started" = true ]; then
+                echo "⚠️ No hay más partidos en vivo y ya pasó el último partido"
+                echo "🏁 Finalizando loop de actualización"
+                break
+              else
+                echo "⚠️ Error en la actualización, pero el último partido aún no comienza"
+                echo "⏳ Esperando 2 minutos antes de reintentar..."
+                sleep 120
+                continue
+              fi
+            fi
+            
+            # Extraer información del resultado
+            status=$(echo "$body" | jq -r '.status // "unknown"' 2>/dev/null || echo "unknown")
+            matches_updated=$(echo "$body" | jq -r '.matches_updated // 0' 2>/dev/null || echo "0")
+            live_matches=$(echo "$body" | jq -r '.live_matches_found // 0' 2>/dev/null || echo "0")
+            
+            echo "📊 Estado: $status"
+            echo "🏈 Partidos en vivo: $live_matches"
+            echo "✅ Partidos actualizados: $matches_updated"
+            
+            # Si no hay partidos en vivo y ya pasó el último partido, detener el loop
+            if [ "$status" = "no_live_matches" ] && [ "$last_match_started" = true ]; then
+              echo "🏁 No hay más partidos en vivo y ya pasó el último partido del domingo"
+              echo "🏁 Finalizando loop de actualización"
+              break
+            fi
+            
+            # Esperar 2 minutos antes de la siguiente iteración
+            if [ $iteration -lt $max_iterations ]; then
+              echo "⏳ Esperando 2 minutos para la siguiente actualización..."
+              sleep 120
+            fi
+          done
+          
+          echo ""
+          echo "✅ LOOP DE ACTUALIZACIÓN COMPLETADO"
+          echo "📊 Total de iteraciones: $iteration"
+      
+      - name: 🏁 Marcar partidos del domingo como completados
+        run: |
+          echo "🔄 Marcando todos los partidos del domingo como completados..."
+          
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            "https://${{ secrets.VERCEL_DOMAIN }}/api/complete-sunday-matches" \
+            --max-time 30)
+          
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n-1)
+          
+          echo "📡 HTTP Status: $http_code"
+          echo "📄 Response: $body"
+          
+          if [ "$http_code" = "200" ]; then
+            matches_completed=$(echo "$body" | jq -r '.matches_completed // 0' 2>/dev/null || echo "0")
+            echo "✅ Partidos marcados como completados: $matches_completed"
+          else
+            echo "⚠️ Error al marcar partidos como completados"
+          fi
+      
+      - name: 📋 Resumen final
+        if: always()
+        run: |
+          echo "📋 RESUMEN DE ACTUALIZACIÓN DE SCORES EN VIVO"
+          echo "=============================================="
+          echo "🆔 Workflow: ${{ github.run_id }}"
+          echo "📅 Fecha final: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          echo "🏈 Partidos del domingo: ${{ steps.get-sunday-schedule.outputs.sunday_matches_count }}"
+          echo "⏰ Primer partido: ${{ steps.get-sunday-schedule.outputs.first_match_kickoff }}"
+          echo "⏰ Último partido: ${{ steps.get-sunday-schedule.outputs.last_match_kickoff }}"
+          echo "📅 Semana NFL: ${{ steps.get-sunday-schedule.outputs.current_week }}"
           echo ""
           echo "🔗 Detalles: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"

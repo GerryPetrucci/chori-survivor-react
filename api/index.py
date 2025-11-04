@@ -240,6 +240,10 @@ async def root():
             "POST /daily-update",
             "POST /update-weekly-odds-auto",
             "POST /save-weekly-team-records",
+            "POST /update-live-scores",
+            "GET /get-sunday-matches-schedule",
+            "POST /complete-sunday-matches",
+            "GET /schedule-weekly-auto-assign",
             "GET /test-env",
             "GET /list-teams",
             "GET /test-api"
@@ -248,7 +252,8 @@ async def root():
             "set-current-week": "Martes y Jueves a las 5:00 AM (0 5 * * 2,4)",
             "daily-update": "Todos los días a las 23:59 (59 23 * * *)",
             "update-weekly-odds-auto": "Todos los días a las 5:00 AM (0 5 * * *)",
-            "auto-assign-last-game-picks": "5 minutos después del último partido de la semana (dinámico)"
+            "auto-assign-last-game-picks": "5 minutos después del último partido de la semana (dinámico)",
+            "update-live-scores": "Domingos a las 5:00 AM - Loop cada 2 min hasta que no haya partidos en vivo (0 5 * * 0)"
         }
     }
 
@@ -1921,5 +1926,346 @@ async def schedule_weekly_auto_assign():
     
     except Exception as e:
         logger.error(f"❌ ERROR GENERAL en schedule_weekly_auto_assign: {e}")
-        return {"error": str(e), "schedule": None}# Para Vercel, el objeto app es el handler
+        return {"error": str(e), "schedule": None}
+
+
+# --- ENDPOINT: UPDATE LIVE SCORES ---
+@app.post("/update-live-scores")
+async def update_live_scores():
+    """
+    Actualiza los scores en vivo de los partidos de la NFL consultando RapidAPI.
+    Solo actualiza los partidos que estén en la respuesta de RapidAPI.
+    """
+    try:
+        logger.info("🔄 INICIANDO: Actualización de scores en vivo")
+        
+        # Obtener todos los equipos de la base de datos
+        teams_query = supabase.table("teams").select("id, name, abbreviation, city").execute()
+        if not teams_query.data:
+            raise HTTPException(status_code=404, detail="No hay equipos en la base de datos")
+        
+        teams = teams_query.data
+        
+        # Crear mapeo de nombres de equipos (shortName de RapidAPI -> team_id local)
+        # RapidAPI usa shortName como "Cowboys", "Cardinals", etc.
+        team_mapping = {}
+        for team in teams:
+            # Mapear por nombre del equipo (ej: "Cowboys" -> id)
+            team_mapping[team['name']] = team['id']
+            # También mapear por abreviación por si acaso
+            team_mapping[team['abbreviation']] = team['id']
+        
+        logger.info(f"📊 Equipos mapeados: {len(team_mapping)}")
+        
+        # Consultar RapidAPI para obtener scores en vivo
+        api_url = f"{BASE_URL}/nfl-livescores"
+        headers = {
+            'X-RapidAPI-Key': RAPIDAPI_KEY,
+            'X-RapidAPI-Host': RAPIDAPI_HOST
+        }
+        
+        logger.info(f"📡 Consultando RapidAPI para scores en vivo...")
+        api_resp = requests.get(api_url, headers=headers, timeout=20)
+        
+        if api_resp.status_code != 200:
+            logger.error(f"❌ Error al consultar RapidAPI: {api_resp.status_code}")
+            return {
+                "status": "error",
+                "message": f"RapidAPI returned status code {api_resp.status_code}",
+                "matches_updated": 0
+            }
+        
+        live_data = api_resp.json()
+        live_matches = live_data.get('live', [])
+        
+        if not live_matches:
+            logger.info("ℹ️  No hay partidos en vivo en este momento")
+            return {
+                "status": "no_live_matches",
+                "message": "No hay partidos en vivo",
+                "matches_updated": 0
+            }
+        
+        logger.info(f"🏈 Partidos en vivo encontrados: {len(live_matches)}")
+        
+        # Obtener temporada activa
+        season_query = supabase.table("seasons").select("*").eq("is_active", True).execute()
+        if not season_query.data:
+            raise HTTPException(status_code=404, detail="No hay temporada activa")
+        
+        current_season = season_query.data[0]
+        season_id = current_season['id']
+        current_week = current_season.get('current_week', 1)
+        
+        matches_updated = 0
+        update_details = []
+        
+        # Procesar cada partido en vivo
+        for live_match in live_matches:
+            try:
+                home_competitor = live_match.get('homeCompetitor', {})
+                away_competitor = live_match.get('awayCompetitor', {})
+                
+                home_team_name = home_competitor.get('shortName', '')
+                away_team_name = away_competitor.get('shortName', '')
+                
+                home_score = home_competitor.get('score', 0)
+                away_score = away_competitor.get('score', 0)
+                
+                # Buscar IDs de equipos locales
+                home_team_id = team_mapping.get(home_team_name)
+                away_team_id = team_mapping.get(away_team_name)
+                
+                if not home_team_id or not away_team_id:
+                    logger.warning(f"⚠️ No se pudo mapear equipos: {home_team_name} vs {away_team_name}")
+                    continue
+                
+                # Buscar el partido en la base de datos
+                match_query = supabase.table("matches").select("id, home_score, away_score").eq(
+                    "season_id", season_id
+                ).eq("week", current_week).eq(
+                    "home_team_id", home_team_id
+                ).eq("away_team_id", away_team_id).execute()
+                
+                if not match_query.data:
+                    logger.warning(f"⚠️ Partido no encontrado en BD: {home_team_name} vs {away_team_name}")
+                    continue
+                
+                match = match_query.data[0]
+                match_id = match['id']
+                
+                # Actualizar scores
+                update_result = supabase.table("matches").update({
+                    "home_score": home_score,
+                    "away_score": away_score,
+                    "updated_at": datetime.now(CDMX_TZ).isoformat()
+                }).eq("id", match_id).execute()
+                
+                if update_result.data:
+                    matches_updated += 1
+                    update_details.append({
+                        "match_id": match_id,
+                        "home_team": home_team_name,
+                        "away_team": away_team_name,
+                        "score": f"{home_score} - {away_score}"
+                    })
+                    logger.info(f"   ✅ Actualizado: {home_team_name} {home_score} - {away_score} {away_team_name}")
+                
+            except Exception as e:
+                logger.error(f"   ❌ Error procesando partido: {e}")
+                continue
+        
+        logger.info(f"✅ ACTUALIZACIÓN COMPLETADA: {matches_updated} partidos actualizados")
+        
+        return {
+            "status": "success",
+            "timestamp": datetime.now(CDMX_TZ).isoformat(),
+            "season_id": season_id,
+            "week": current_week,
+            "matches_updated": matches_updated,
+            "live_matches_found": len(live_matches),
+            "details": update_details
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ ERROR en update_live_scores: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- ENDPOINT: GET SUNDAY MATCHES SCHEDULE ---
+@app.get("/get-sunday-matches-schedule")
+async def get_sunday_matches_schedule():
+    """
+    Obtiene el horario del primer y último partido del domingo de la semana NFL actual.
+    """
+    try:
+        logger.info("🔄 Obteniendo horarios de partidos del domingo")
+        
+        # Obtener temporada activa
+        season_query = supabase.table("seasons").select("*").eq("is_active", True).execute()
+        if not season_query.data:
+            return {"error": "No hay temporada activa"}
+        
+        current_season = season_query.data[0]
+        season_id = current_season['id']
+        current_week = current_season.get('current_week', 1)
+        
+        # Obtener todos los partidos de la semana actual
+        matches_query = supabase.table("matches").select(
+            "id, home_team_id, away_team_id, game_date, week, status"
+        ).eq("season_id", season_id).eq("week", current_week).order("game_date").execute()
+        
+        if not matches_query.data:
+            return {"error": f"No hay partidos para la semana {current_week}"}
+        
+        all_matches = matches_query.data
+        
+        # Filtrar solo partidos del domingo
+        sunday_matches = []
+        for match in all_matches:
+            try:
+                game_date_str = match['game_date']
+                if isinstance(game_date_str, str):
+                    try:
+                        game_dt = datetime.strptime(game_date_str, "%Y-%m-%dT%H:%M:%S")
+                    except ValueError:
+                        game_dt = datetime.strptime(game_date_str, "%Y-%m-%d %H:%M:%S")
+                else:
+                    game_dt = game_date_str
+                
+                # Localizar a CDMX
+                if game_dt.tzinfo is None:
+                    game_dt = CDMX_TZ.localize(game_dt)
+                else:
+                    game_dt = game_dt.astimezone(CDMX_TZ)
+                
+                # Verificar si es domingo (weekday() == 6)
+                if game_dt.weekday() == 6:
+                    sunday_matches.append({
+                        "id": match['id'],
+                        "game_date": game_dt,
+                        "game_date_iso": game_dt.isoformat(),
+                        "home_team_id": match['home_team_id'],
+                        "away_team_id": match['away_team_id'],
+                        "status": match.get('status', 'scheduled')
+                    })
+            except Exception as e:
+                logger.error(f"Error procesando partido {match['id']}: {e}")
+                continue
+        
+        if not sunday_matches:
+            return {"error": "No hay partidos programados para el domingo de esta semana"}
+        
+        # Ordenar por fecha
+        sunday_matches.sort(key=lambda x: x['game_date'])
+        
+        first_match = sunday_matches[0]
+        last_match = sunday_matches[-1]
+        
+        now_cdmx = datetime.now(CDMX_TZ)
+        minutes_until_first = (first_match['game_date'] - now_cdmx).total_seconds() / 60
+        
+        logger.info(f"🏈 Partidos del domingo: {len(sunday_matches)}")
+        logger.info(f"⏰ Primer partido: {first_match['game_date'].strftime('%Y-%m-%d %H:%M CDMX')}")
+        logger.info(f"⏰ Último partido: {last_match['game_date'].strftime('%Y-%m-%d %H:%M CDMX')}")
+        
+        return {
+            "season_id": season_id,
+            "current_week": current_week,
+            "sunday_matches_count": len(sunday_matches),
+            "first_match": {
+                "id": first_match['id'],
+                "kickoff_cdmx": first_match['game_date_iso'],
+                "home_team_id": first_match['home_team_id'],
+                "away_team_id": first_match['away_team_id'],
+                "status": first_match['status']
+            },
+            "last_match": {
+                "id": last_match['id'],
+                "kickoff_cdmx": last_match['game_date_iso'],
+                "home_team_id": last_match['home_team_id'],
+                "away_team_id": last_match['away_team_id'],
+                "status": last_match['status']
+            },
+            "current_time_cdmx": now_cdmx.isoformat(),
+            "minutes_until_first_match": round(minutes_until_first, 2)
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ ERROR en get_sunday_matches_schedule: {e}")
+        return {"error": str(e)}
+
+
+# --- ENDPOINT: COMPLETE SUNDAY MATCHES ---
+@app.post("/complete-sunday-matches")
+async def complete_sunday_matches():
+    """
+    Marca todos los partidos del domingo de la semana actual como 'completed'.
+    """
+    try:
+        logger.info("🔄 INICIANDO: Marcar partidos del domingo como completados")
+        
+        # Obtener temporada activa
+        season_query = supabase.table("seasons").select("*").eq("is_active", True).execute()
+        if not season_query.data:
+            raise HTTPException(status_code=404, detail="No hay temporada activa")
+        
+        current_season = season_query.data[0]
+        season_id = current_season['id']
+        current_week = current_season.get('current_week', 1)
+        
+        # Obtener todos los partidos de la semana actual
+        matches_query = supabase.table("matches").select(
+            "id, game_date, status"
+        ).eq("season_id", season_id).eq("week", current_week).execute()
+        
+        if not matches_query.data:
+            return {"message": f"No hay partidos para la semana {current_week}", "matches_completed": 0}
+        
+        all_matches = matches_query.data
+        
+        # Filtrar solo partidos del domingo
+        sunday_match_ids = []
+        for match in all_matches:
+            try:
+                game_date_str = match['game_date']
+                if isinstance(game_date_str, str):
+                    try:
+                        game_dt = datetime.strptime(game_date_str, "%Y-%m-%dT%H:%M:%S")
+                    except ValueError:
+                        game_dt = datetime.strptime(game_date_str, "%Y-%m-%d %H:%M:%S")
+                else:
+                    game_dt = game_date_str
+                
+                # Localizar a CDMX
+                if game_dt.tzinfo is None:
+                    game_dt = CDMX_TZ.localize(game_dt)
+                else:
+                    game_dt = game_dt.astimezone(CDMX_TZ)
+                
+                # Verificar si es domingo (weekday() == 6)
+                if game_dt.weekday() == 6:
+                    sunday_match_ids.append(match['id'])
+            except Exception as e:
+                logger.error(f"Error procesando partido {match['id']}: {e}")
+                continue
+        
+        if not sunday_match_ids:
+            return {"message": "No hay partidos del domingo para marcar como completados", "matches_completed": 0}
+        
+        logger.info(f"📊 Partidos del domingo a completar: {len(sunday_match_ids)}")
+        
+        # Actualizar todos los partidos del domingo a 'completed'
+        matches_completed = 0
+        for match_id in sunday_match_ids:
+            try:
+                update_result = supabase.table("matches").update({
+                    "status": "completed",
+                    "updated_at": datetime.now(CDMX_TZ).isoformat()
+                }).eq("id", match_id).execute()
+                
+                if update_result.data:
+                    matches_completed += 1
+                    logger.info(f"   ✅ Partido {match_id} marcado como completado")
+            except Exception as e:
+                logger.error(f"   ❌ Error actualizando partido {match_id}: {e}")
+                continue
+        
+        logger.info(f"✅ COMPLETADO: {matches_completed} partidos marcados como completados")
+        
+        return {
+            "status": "success",
+            "timestamp": datetime.now(CDMX_TZ).isoformat(),
+            "season_id": season_id,
+            "week": current_week,
+            "matches_completed": matches_completed,
+            "total_sunday_matches": len(sunday_match_ids)
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ ERROR en complete_sunday_matches: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Para Vercel, el objeto app es el handler
 # Vercel automáticamente detecta FastAPI y lo ejecuta
