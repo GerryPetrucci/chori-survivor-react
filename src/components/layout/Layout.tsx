@@ -110,11 +110,11 @@ export default function Layout() {
       }}>
         <Box
           component="img"
-          src="/assets/logos/diablo_survivor.png"
+          src="/assets/logos/chori_survivor.png"
           alt="Diablo Survivor Logo"
           sx={{
-            height: "50%",
-            width: "50%",
+            height: "70%",
+            width: "70%",
             mb: 1.5,
             borderRadius: 2,
             boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
@@ -124,19 +124,6 @@ export default function Layout() {
             }
           }}
         />
-        <Typography 
-          variant="h6" 
-          noWrap 
-          component="div" 
-          fontWeight="bold" 
-          textAlign="center"
-          sx={{
-            textShadow: '0 2px 4px rgba(0,0,0,0.3)',
-            fontSize: '1.1rem'
-          }}
-        >
-          Chori Survivor
-        </Typography>
       </Toolbar>
       
       <List sx={{ px: 1, pt: 2 }}>
@@ -294,8 +281,8 @@ export default function Layout() {
               src="/assets/logos/diablo_survivor.png"
               alt="Chori Survivor Logo"
               sx={{
-                height: { xs: 32, sm: 36 },
-                width: { xs: 32, sm: 36 },
+                height: { xs: 42, sm: 46 },
+                width: { xs: 42, sm: 46 },
                 mr: 1.2,
                 borderRadius: 1.5,
                 boxShadow: '0 3px 10px rgba(0,0,0,0.18)',
