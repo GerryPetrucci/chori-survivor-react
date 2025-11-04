@@ -857,9 +857,17 @@ async def update_matches(body: UpdateMatchesRequest = Body(None)):
             # ...actualización de partido...
             if match_query.data:
                 match = match_query.data[0]
-                logger.info(f"Partido existente - DB: {match.get('home_score')}-{match.get('away_score')}, API: {home_score}-{away_score}")
-                # Actualizar marcadores solo si son diferentes
-                if (match.get('home_score') != home_score_db or match.get('away_score') != away_score_db):
+                logger.info(f"Partido existente - DB: {match.get('home_score')}-{match.get('away_score')}, API: {home_score}-{away_score}, Status DB: {match.get('status')}, Status API: {status_db}")
+                
+                # Actualizar si cambió el marcador O el estado
+                # Esto permite actualizar partidos "completed" si el marcador final cambió
+                should_update = (
+                    match.get('home_score') != home_score_db or 
+                    match.get('away_score') != away_score_db or
+                    match.get('status') != status_db
+                )
+                
+                if should_update:
                     update_data = {
                         "home_score": home_score_db,
                         "away_score": away_score_db,
@@ -872,9 +880,9 @@ async def update_matches(body: UpdateMatchesRequest = Body(None)):
                     result = supabase.table("matches").update(update_data).eq("id", match['id']).execute()
                     logger.info(f"Resultado actualización: {result}")
                     matches_updated += 1
-                    logger.info(f"Actualizado: {home_team_name} {home_score_db} - {away_score_db} {away_team_name} (Semana {week_num})")
+                    logger.info(f"Actualizado: {home_team_name} {home_score_db} - {away_score_db} {away_team_name} (Semana {week_num}) - Estado: {status_db}")
                 else:
-                    logger.info(f"No necesita actualización: {home_team_name} vs {away_team_name} (marcadores iguales)")
+                    logger.info(f"No necesita actualización: {home_team_name} vs {away_team_name} (marcadores y estado iguales)")
             else:
                 # Insertar nuevo partido
                 insert_data = {
@@ -1976,6 +1984,16 @@ async def update_live_scores():
             }
         
         live_data = api_resp.json()
+        
+        # Verificar si RapidAPI responde con el mensaje de "no hay partidos en vivo"
+        if isinstance(live_data, dict) and live_data.get('msg') == "There are no live NFL matches happening right now.":
+            logger.info("ℹ️  RapidAPI reporta: No hay partidos en vivo en este momento")
+            return {
+                "status": "no_live_matches",
+                "message": live_data.get('msg'),
+                "matches_updated": 0
+            }
+        
         live_matches = live_data.get('live', [])
         
         if not live_matches:
