@@ -1,16 +1,12 @@
 # type: ignore
 from fastapi import FastAPI, HTTPException, Query, Body
-from supabase import create_client, Client
 from datetime import datetime, timedelta
-from dotenv import load_dotenv
 import os
 import pytz
 import logging
 import requests
 import asyncio
-import os
 from pydantic import BaseModel
-
 from math import floor
 
 # Configuracion de logging
@@ -23,19 +19,49 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Intentar importar Supabase - puede fallar si no está instalado
+try:
+    from supabase import create_client, Client
+    SUPABASE_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"⚠️ Supabase module not available: {e}")
+    SUPABASE_AVAILABLE = False
+    Client = None
+
+# Intentar cargar variables de entorno desde .env.local
+try:
+    from dotenv import load_dotenv
+    # Buscar .env.local en el directorio raíz del proyecto
+    env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env.local')
+    if os.path.exists(env_path):
+        load_dotenv(env_path)
+        logger.info(f"✅ Loaded environment variables from {env_path}")
+    else:
+        # Intentar también con .env
+        env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+        if os.path.exists(env_path):
+            load_dotenv(env_path)
+            logger.info(f"✅ Loaded environment variables from {env_path}")
+        else:
+            logger.info("ℹ️ No .env.local or .env file found - using system environment variables")
+except ImportError:
+    logger.warning("⚠️ python-dotenv not installed - using system environment variables only")
+
 # Configuración de Supabase
 SUPABASE_URL = os.getenv("VITE_SUPABASE_URL")
 SUPABASE_KEY = os.getenv("VITE_SUPABASE_ANON_KEY")
 
-# Inicializar supabase solo si las variables están configuradas
+# Inicializar supabase solo si las variables están configuradas Y el módulo está disponible
 supabase: Client = None
-if SUPABASE_URL and SUPABASE_KEY:
+if SUPABASE_AVAILABLE and SUPABASE_URL and SUPABASE_KEY:
     try:
         supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
         logger.info("✅ Supabase client initialized successfully")
     except Exception as e:
         logger.error(f"❌ Error initializing Supabase client: {e}")
         supabase = None
+elif not SUPABASE_AVAILABLE:
+    logger.warning("⚠️ Supabase module not available - install with: pip install supabase")
 else:
     logger.warning("⚠️ Supabase credentials not found - some endpoints may not work")
 
