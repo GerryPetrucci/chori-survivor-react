@@ -435,7 +435,9 @@ jobs:
       
       - name: ⏰ Esperar hasta el primer partido del domingo
         run: |
-          minutes_until_first=${{ steps.get-sunday-schedule.outputs.minutes_until_first }}
+          minutes_until_first_raw=${{ steps.get-sunday-schedule.outputs.minutes_until_first }}
+          # Convertir decimal a entero (redondear hacia abajo)
+          minutes_until_first=$(printf "%.0f" "$minutes_until_first_raw" 2>/dev/null || echo "0")
           first_match_kickoff="${{ steps.get-sunday-schedule.outputs.first_match_kickoff }}"
           
           if [ "$minutes_until_first" -le 0 ]; then
