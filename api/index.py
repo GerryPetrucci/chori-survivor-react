@@ -2052,10 +2052,11 @@ async def update_live_scores():
                 match = match_query.data[0]
                 match_id = match['id']
                 
-                # Actualizar scores
+                # Actualizar scores Y status
                 update_result = supabase.table("matches").update({
                     "home_score": home_score,
                     "away_score": away_score,
+                    "status": "in_progress",  # ⚠️ CRÍTICO: Cambiar status para que se muestre en el frontend
                     "updated_at": datetime.now(CDMX_TZ).isoformat()
                 }).eq("id", match_id).execute()
                 

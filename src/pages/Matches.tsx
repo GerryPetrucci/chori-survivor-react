@@ -15,12 +15,34 @@ import {
   Select,
   MenuItem,
   CircularProgress,
-  Chip
+  Chip,
+  IconButton,
+  Tooltip
 } from '@mui/material';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import { seasonsService, teamsService } from '../services/supabase';
 import { supabase } from '../config/supabase';
 import OddsTooltip from '../components/ui/OddsTooltip';
 import { teamRecordsService } from '../services/supabase';
+
+// Keyframes para la animación de spin
+const spinKeyframes = `
+  @keyframes spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+`;
+
+// Inyectar los keyframes en el head del documento
+if (typeof document !== 'undefined') {
+  const styleElement = document.createElement('style');
+  styleElement.innerHTML = spinKeyframes;
+  document.head.appendChild(styleElement);
+}
 
 interface Match {
   id: number;
@@ -54,6 +76,8 @@ export default function MatchesPage() {
   const [currentSeason, setCurrentSeason] = useState<any>(null);
   const [availableWeeks] = useState<number[]>(Array.from({ length: 18 }, (_, i) => i + 1));
   const [teamRecords, setTeamRecords] = useState<Record<number, { wins: number; losses: number; ties: number }> | null>(null);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Función para obtener el logo del equipo basado en el nombre/ciudad
   const getTeamLogo = (teamName: string, teamCity: string) => {
@@ -138,6 +162,71 @@ export default function MatchesPage() {
     }
   }, [selectedWeek, currentSeason]);
 
+  // 🔄 Auto-refresh para partidos en curso (polling cada 2 minutos)
+  useEffect(() => {
+    // Solo hacer polling si hay partidos en curso o programados para hoy
+    const hasLiveOrUpcomingMatches = matches.some(m => {
+      if (m.status === 'in_progress') return true;
+      
+      // Verificar si el partido es hoy y aún no ha terminado
+      const matchDate = new Date(m.game_date);
+      const today = new Date();
+      const isSameDay = matchDate.toDateString() === today.toDateString();
+      
+      return isSameDay && m.status === 'scheduled';
+    });
+
+    if (!hasLiveOrUpcomingMatches) {
+      return; // No hacer polling si no hay partidos en curso o programados para hoy
+    }
+
+    console.log('🔄 Iniciando auto-refresh de marcadores (cada 2 minutos)');
+    
+    const intervalId = setInterval(() => {
+      console.log('🔄 Actualizando marcadores...');
+      loadMatches();
+    }, 120000); // 2 minutos = 120,000 ms
+
+    return () => {
+      console.log('🛑 Deteniendo auto-refresh de marcadores');
+      clearInterval(intervalId);
+    };
+  }, [matches, currentSeason]);
+
+  // 🔴 Suscripción en tiempo real a cambios en la tabla matches
+  useEffect(() => {
+    if (!currentSeason || !selectedWeek) return;
+
+    console.log('📡 Suscribiéndose a actualizaciones en tiempo real de partidos...');
+
+    // Crear canal de Supabase Realtime
+    const channel = supabase
+      .channel('matches-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'matches',
+          filter: `season_id=eq.${currentSeason.id},week=eq.${selectedWeek}`
+        },
+        (payload) => {
+          console.log('🔴 Cambio detectado en partido:', payload);
+          // Recargar partidos cuando hay una actualización
+          loadMatches();
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 Estado de suscripción:', status);
+      });
+
+    // Cleanup: desuscribirse cuando el componente se desmonte o cambien las dependencias
+    return () => {
+      console.log('🔌 Desuscribiéndose de actualizaciones en tiempo real');
+      supabase.removeChannel(channel);
+    };
+  }, [currentSeason, selectedWeek]);
+
   const loadTeamRecords = async () => {
     if (!currentSeason) return;
     try {
@@ -214,6 +303,7 @@ export default function MatchesPage() {
       }
 
       setMatches(matchesData || []);
+      setLastUpdate(new Date());
 
     } catch (err: any) {
       console.error('Error loading matches:', err);
@@ -221,6 +311,13 @@ export default function MatchesPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Función para refrescar manualmente
+  const handleManualRefresh = async () => {
+    setRefreshing(true);
+    await loadMatches();
+    setRefreshing(false);
   };
 
   const formatDate = (dateString: string) => {
@@ -409,10 +506,32 @@ export default function MatchesPage() {
             </Select>
           </FormControl>
 
-          <Typography variant="h6" sx={{ fontWeight: 'bold', fontSize: { xs: '1rem', sm: '1.25rem' } }}>
-            Semana {selectedWeek} - {matches.length} partidos
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Typography variant="h6" sx={{ fontWeight: 'bold', fontSize: { xs: '1rem', sm: '1.25rem' } }}>
+              Semana {selectedWeek} - {matches.length} partidos
+            </Typography>
+            
+            {/* Botón de refresh manual */}
+            <Tooltip title={lastUpdate ? `Última actualización: ${lastUpdate.toLocaleTimeString()}` : 'Actualizar marcadores'}>
+              <IconButton 
+                onClick={handleManualRefresh} 
+                disabled={refreshing}
+                color="primary"
+                size="small"
+              >
+                <RefreshIcon sx={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
+              </IconButton>
+            </Tooltip>
+          </Box>
         </Box>
+
+        {/* Indicador de auto-refresh si hay partidos en curso */}
+        {matches.some(m => m.status === 'in_progress') && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            🔴 Actualizando marcadores automáticamente cada 2 minutos
+            {lastUpdate && ` • Última actualización: ${lastUpdate.toLocaleTimeString()}`}
+          </Alert>
+        )}
 
         {matches.length === 0 ? (
           <Alert severity="info">
