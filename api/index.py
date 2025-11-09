@@ -27,11 +27,17 @@ logger = logging.getLogger(__name__)
 SUPABASE_URL = os.getenv("VITE_SUPABASE_URL")
 SUPABASE_KEY = os.getenv("VITE_SUPABASE_ANON_KEY")
 
-if not SUPABASE_URL or not SUPABASE_KEY:
-    logger.error("Variables de entorno de Supabase no configuradas correctamente")
-    raise ValueError("VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY son requeridas")
-
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# Inicializar supabase solo si las variables están configuradas
+supabase: Client = None
+if SUPABASE_URL and SUPABASE_KEY:
+    try:
+        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+        logger.info("✅ Supabase client initialized successfully")
+    except Exception as e:
+        logger.error(f"❌ Error initializing Supabase client: {e}")
+        supabase = None
+else:
+    logger.warning("⚠️ Supabase credentials not found - some endpoints may not work")
 
 # Configuración de NFL API Data
 RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY", "115f54c5d8msh65bec7d1186e70fp12be67jsn8fc1b8736a43")
@@ -41,6 +47,16 @@ CDMX_TZ = pytz.timezone('America/Mexico_City')
 
 # Crear app FastAPI con root_path para que funcione detrás del proxy /api
 app = FastAPI(root_path="/api")
+
+# Helper function to check Supabase availability
+def check_supabase():
+    """Verifica que el cliente de Supabase esté inicializado"""
+    if supabase is None:
+        raise HTTPException(
+            status_code=503, 
+            detail="Supabase not configured - check environment variables"
+        )
+    return supabase
 
 # Modelo para team_records
 class TeamRecord(BaseModel):
@@ -225,10 +241,13 @@ class UpdateOddsRequest(BaseModel):
 @app.get("/")
 async def root():
     """Endpoint raíz de la API"""
+    supabase_status = "connected" if supabase is not None else "not_configured"
+    
     return {
         "message": "ChoriSurvivor NFL API",
         "version": "1.0.0",
         "status": "active",
+        "supabase_status": supabase_status,
         "endpoints": [
             "GET /get-weekly-odds?week={week}",
             "POST /update-weekly-odds",
@@ -246,7 +265,8 @@ async def root():
             "GET /schedule-weekly-auto-assign",
             "GET /test-env",
             "GET /list-teams",
-            "GET /test-api"
+            "GET /test-api",
+            "GET /health"
         ],
         "cron_jobs": {
             "set-current-week": "Martes y Jueves a las 5:00 AM (0 5 * * 2,4)",
@@ -254,6 +274,20 @@ async def root():
             "update-weekly-odds-auto": "Todos los días a las 5:00 AM (0 5 * * *)",
             "auto-assign-last-game-picks": "5 minutos después del último partido de la semana (dinámico)",
             "update-live-scores": "Domingos a las 5:00 AM - Loop cada 2 min hasta que no haya partidos en vivo (0 5 * * 0)"
+        }
+    }
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint - no requiere Supabase"""
+    return {
+        "status": "healthy",
+        "timestamp": datetime.now(pytz.utc).isoformat(),
+        "supabase": "connected" if supabase is not None else "not_configured",
+        "environment": {
+            "supabase_url_set": bool(SUPABASE_URL),
+            "supabase_key_set": bool(SUPABASE_KEY),
+            "rapidapi_key_set": bool(RAPIDAPI_KEY)
         }
     }
 
