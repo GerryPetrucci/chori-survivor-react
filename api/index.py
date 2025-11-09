@@ -25,14 +25,34 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 # Configuración de Supabase
-SUPABASE_URL = os.getenv("VITE_SUPABASE_URL")
-SUPABASE_KEY = os.getenv("VITE_SUPABASE_ANON_KEY")
+# En Vercel, las variables VITE_* no están disponibles para funciones serverless
+# Intentar múltiples nombres
+SUPABASE_URL = (
+    os.getenv("SUPABASE_URL") or 
+    os.getenv("VITE_SUPABASE_URL") or 
+    os.getenv("NEXT_PUBLIC_SUPABASE_URL")
+)
+SUPABASE_KEY = (
+    os.getenv("SUPABASE_ANON_KEY") or 
+    os.getenv("VITE_SUPABASE_ANON_KEY") or 
+    os.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY")
+)
 
-if not SUPABASE_URL or not SUPABASE_KEY:
-    logger.error("❌ Variables de entorno de Supabase no configuradas correctamente")
-    raise ValueError("VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY son requeridas")
+# Log para debugging
+logger.info(f"🔍 Checking environment variables...")
+logger.info(f"   SUPABASE_URL found: {bool(SUPABASE_URL)}")
+logger.info(f"   SUPABASE_KEY found: {bool(SUPABASE_KEY)}")
 
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# Inicializar Supabase - permitir que el servidor inicie incluso si faltan variables
+supabase: Client = None
+if SUPABASE_URL and SUPABASE_KEY:
+    try:
+        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+        logger.info("✅ Supabase client initialized successfully")
+    except Exception as e:
+        logger.error(f"❌ Error initializing Supabase client: {e}")
+else:
+    logger.warning("⚠️ Supabase credentials not configured - some endpoints will not work")
 
 # Configuración de NFL API Data
 RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY", "115f54c5d8msh65bec7d1186e70fp12be67jsn8fc1b8736a43")
