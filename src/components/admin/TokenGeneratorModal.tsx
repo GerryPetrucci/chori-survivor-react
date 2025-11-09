@@ -32,7 +32,7 @@ import {
 } from '@mui/icons-material';
 import type { TransitionProps } from '@mui/material/transitions';
 import { tokensService } from '../../services/supabase';
-import emailService from '../../services/emailService';
+import { emailServiceResend } from '../../services/emailServiceResend';
 
 interface TokenGeneratorModalProps {
   open: boolean;
@@ -159,7 +159,7 @@ export default function TokenGeneratorModal({ open, onClose }: TokenGeneratorMod
       let emailError = '';
       
       try {
-        const emailResult = await emailService.sendTokenEmail({
+        const emailResult = await emailServiceResend.sendTokenEmail({
           token,
           recipientEmail: formData.email,
           entriesCount: formData.entriesCount,
@@ -430,7 +430,7 @@ export default function TokenGeneratorModal({ open, onClose }: TokenGeneratorMod
         }
       }}>
         <TokenIcon sx={{ color: 'white' }} />
-        <Typography variant="h5" fontWeight="bold" sx={{ textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
+        <Typography component="span" variant="h5" fontWeight="bold" sx={{ textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
           Generar Token de Activación
         </Typography>
         <Box sx={{ flex: 1 }} />
