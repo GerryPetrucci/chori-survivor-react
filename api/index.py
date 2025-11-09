@@ -1,6 +1,8 @@
 # type: ignore
 from fastapi import FastAPI, HTTPException, Query, Body
+from supabase import create_client, Client
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
 import os
 import pytz
 import logging
@@ -19,51 +21,18 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Intentar importar Supabase - puede fallar si no está instalado
-try:
-    from supabase import create_client, Client
-    SUPABASE_AVAILABLE = True
-except ImportError as e:
-    logger.warning(f"⚠️ Supabase module not available: {e}")
-    SUPABASE_AVAILABLE = False
-    Client = None
-
-# Intentar cargar variables de entorno desde .env.local
-try:
-    from dotenv import load_dotenv
-    # Buscar .env.local en el directorio raíz del proyecto
-    env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env.local')
-    if os.path.exists(env_path):
-        load_dotenv(env_path)
-        logger.info(f"✅ Loaded environment variables from {env_path}")
-    else:
-        # Intentar también con .env
-        env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
-        if os.path.exists(env_path):
-            load_dotenv(env_path)
-            logger.info(f"✅ Loaded environment variables from {env_path}")
-        else:
-            logger.info("ℹ️ No .env.local or .env file found - using system environment variables")
-except ImportError:
-    logger.warning("⚠️ python-dotenv not installed - using system environment variables only")
+# Cargar variables de entorno
+load_dotenv()
 
 # Configuración de Supabase
 SUPABASE_URL = os.getenv("VITE_SUPABASE_URL")
 SUPABASE_KEY = os.getenv("VITE_SUPABASE_ANON_KEY")
 
-# Inicializar supabase solo si las variables están configuradas Y el módulo está disponible
-supabase: Client = None
-if SUPABASE_AVAILABLE and SUPABASE_URL and SUPABASE_KEY:
-    try:
-        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-        logger.info("✅ Supabase client initialized successfully")
-    except Exception as e:
-        logger.error(f"❌ Error initializing Supabase client: {e}")
-        supabase = None
-elif not SUPABASE_AVAILABLE:
-    logger.warning("⚠️ Supabase module not available - install with: pip install supabase")
-else:
-    logger.warning("⚠️ Supabase credentials not found - some endpoints may not work")
+if not SUPABASE_URL or not SUPABASE_KEY:
+    logger.error("❌ Variables de entorno de Supabase no configuradas correctamente")
+    raise ValueError("VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY son requeridas")
+
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # Configuración de NFL API Data
 RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY", "115f54c5d8msh65bec7d1186e70fp12be67jsn8fc1b8736a43")
@@ -73,16 +42,6 @@ CDMX_TZ = pytz.timezone('America/Mexico_City')
 
 # Crear app FastAPI con root_path para que funcione detrás del proxy /api
 app = FastAPI(root_path="/api")
-
-# Helper function to check Supabase availability
-def check_supabase():
-    """Verifica que el cliente de Supabase esté inicializado"""
-    if supabase is None:
-        raise HTTPException(
-            status_code=503, 
-            detail="Supabase not configured - check environment variables"
-        )
-    return supabase
 
 # Modelo para team_records
 class TeamRecord(BaseModel):
