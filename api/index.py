@@ -1,31 +1,25 @@
-﻿# Versión mínima para debugging
+﻿# Test: Solo import de Supabase sin usar
 from fastapi import FastAPI
-from supabase import create_client, Client
 import os
 
+# Intentar importar Supabase dentro de try/except
+supabase_error = None
+try:
+    from supabase import create_client, Client
+    supabase_imported = True
+except Exception as e:
+    supabase_imported = False
+    supabase_error = str(e)
+
 app = FastAPI(root_path="/api")
-
-# Configuración de Supabase
-SUPABASE_URL = os.getenv("SUPABASE_URL") or os.getenv("VITE_SUPABASE_URL") or os.getenv("NEXT_PUBLIC_SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY") or os.getenv("VITE_SUPABASE_ANON_KEY") or os.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY")
-
-# Inicializar Supabase
-supabase: Client = None
-if SUPABASE_URL and SUPABASE_KEY:
-    try:
-        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-        status = "connected"
-    except Exception as e:
-        status = f"error: {str(e)}"
-else:
-    status = "no_credentials"
 
 @app.get("/")
 async def root():
     return {
         "status": "alive",
-        "message": "FastAPI with Supabase",
-        "supabase": status,
+        "message": "Testing Supabase import",
+        "supabase_imported": supabase_imported,
+        "supabase_error": supabase_error,
         "env_test": {
             "has_vite_url": bool(os.getenv("VITE_SUPABASE_URL")),
             "has_supabase_url": bool(os.getenv("SUPABASE_URL")),
@@ -35,4 +29,4 @@ async def root():
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy", "supabase": status}
+    return {"status": "healthy"}
