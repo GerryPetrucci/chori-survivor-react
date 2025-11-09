@@ -2019,7 +2019,16 @@ async def update_live_scores():
         current_week = current_season.get('current_week', 1)
         
         matches_updated = 0
+        matches_completed = 0
         update_details = []
+        
+        # Primero, obtener todos los partidos que estaban en progreso
+        in_progress_query = supabase.table("matches").select("id, home_team_id, away_team_id").eq(
+            "season_id", season_id
+        ).eq("week", current_week).eq("status", "in_progress").execute()
+        
+        in_progress_matches = in_progress_query.data if in_progress_query.data else []
+        live_match_ids = set()
         
         # Procesar cada partido en vivo
         for live_match in live_matches:
@@ -2054,11 +2063,13 @@ async def update_live_scores():
                 
                 match = match_query.data[0]
                 match_id = match['id']
+                live_match_ids.add(match_id)
                 
-                # Actualizar scores
+                # Actualizar scores y marcar como in_progress
                 update_result = supabase.table("matches").update({
                     "home_score": home_score,
                     "away_score": away_score,
+                    "status": "in_progress",
                     "updated_at": datetime.now(CDMX_TZ).isoformat()
                 }).eq("id", match_id).execute()
                 
@@ -2068,15 +2079,38 @@ async def update_live_scores():
                         "match_id": match_id,
                         "home_team": home_team_name,
                         "away_team": away_team_name,
-                        "score": f"{home_score} - {away_score}"
+                        "score": f"{home_score} - {away_score}",
+                        "status": "in_progress"
                     })
-                    logger.info(f"   ✅ Actualizado: {home_team_name} {home_score} - {away_score} {away_team_name}")
+                    logger.info(f"   ✅ Actualizado IN PROGRESS: {home_team_name} {home_score} - {away_score} {away_team_name}")
                 
             except Exception as e:
                 logger.error(f"   ❌ Error procesando partido: {e}")
                 continue
         
-        logger.info(f"✅ ACTUALIZACIÓN COMPLETADA: {matches_updated} partidos actualizados")
+        # Marcar como completados los partidos que estaban in_progress pero ya no están en vivo
+        for in_progress_match in in_progress_matches:
+            match_id = in_progress_match['id']
+            if match_id not in live_match_ids:
+                # Este partido ya no está en vivo, marcarlo como completado
+                try:
+                    complete_result = supabase.table("matches").update({
+                        "status": "completed",
+                        "updated_at": datetime.now(CDMX_TZ).isoformat()
+                    }).eq("id", match_id).execute()
+                    
+                    if complete_result.data:
+                        matches_completed += 1
+                        update_details.append({
+                            "match_id": match_id,
+                            "status": "completed",
+                            "note": "No longer in live API"
+                        })
+                        logger.info(f"   ✅ Partido {match_id} marcado como COMPLETED (ya no está en vivo)")
+                except Exception as e:
+                    logger.error(f"   ❌ Error marcando partido {match_id} como completed: {e}")
+        
+        logger.info(f"✅ ACTUALIZACIÓN COMPLETADA: {matches_updated} actualizados, {matches_completed} completados")
         
         return {
             "status": "success",
@@ -2084,6 +2118,7 @@ async def update_live_scores():
             "season_id": season_id,
             "week": current_week,
             "matches_updated": matches_updated,
+            "matches_completed": matches_completed,
             "live_matches_found": len(live_matches),
             "details": update_details
         }

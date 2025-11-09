@@ -15,8 +15,11 @@ import {
   Select,
   MenuItem,
   CircularProgress,
-  Chip
+  Chip,
+  IconButton,
+  Tooltip
 } from '@mui/material';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import { seasonsService, teamsService } from '../services/supabase';
 import { supabase } from '../config/supabase';
 import OddsTooltip from '../components/ui/OddsTooltip';
@@ -54,6 +57,7 @@ export default function MatchesPage() {
   const [currentSeason, setCurrentSeason] = useState<any>(null);
   const [availableWeeks] = useState<number[]>(Array.from({ length: 18 }, (_, i) => i + 1));
   const [teamRecords, setTeamRecords] = useState<Record<number, { wins: number; losses: number; ties: number }> | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Función para obtener el logo del equipo basado en el nombre/ciudad
   const getTeamLogo = (teamName: string, teamCity: string) => {
@@ -223,6 +227,38 @@ export default function MatchesPage() {
     }
   };
 
+  const refreshLiveScores = async () => {
+    if (!currentSeason) return;
+    
+    try {
+      setRefreshing(true);
+      
+      // Llamar al endpoint de la API para actualizar scores en vivo
+      const response = await fetch('/api/update-live-scores', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok) {
+        console.log('Live scores updated:', result);
+        // Recargar los partidos de la semana actual para mostrar los cambios
+        if (selectedWeek === currentSeason.current_week) {
+          await loadMatches();
+        }
+      } else {
+        console.error('Error updating live scores:', result);
+      }
+    } catch (error) {
+      console.error('Error calling live scores API:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('es-ES', {
@@ -379,35 +415,57 @@ export default function MatchesPage() {
       <Paper sx={{ p: 3, mt: 3 }}>
         {/* Filtro de Semana */}
         <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
-          <FormControl size="small" sx={{ minWidth: { xs: 140, sm: 180 } }}>
-            <InputLabel>Semana</InputLabel>
-            <Select
-              value={selectedWeek}
-              label="Semana"
-              onChange={(e) => setSelectedWeek(e.target.value as number)}
-              MenuProps={{
-                anchorOrigin: {
-                  vertical: 'bottom',
-                  horizontal: 'left',
-                },
-                transformOrigin: {
-                  vertical: 'top',
-                  horizontal: 'left',
-                },
-                PaperProps: {
-                  style: {
-                    maxHeight: 300,
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <FormControl size="small" sx={{ minWidth: { xs: 140, sm: 180 } }}>
+              <InputLabel>Semana</InputLabel>
+              <Select
+                value={selectedWeek}
+                label="Semana"
+                onChange={(e) => setSelectedWeek(e.target.value as number)}
+                MenuProps={{
+                  anchorOrigin: {
+                    vertical: 'bottom',
+                    horizontal: 'left',
                   },
-                },
-              }}
-            >
-              {availableWeeks.map((week) => (
-                <MenuItem key={week} value={week}>
-                  Semana {week} {currentSeason?.current_week === week ? '(Actual)' : ''}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+                  transformOrigin: {
+                    vertical: 'top',
+                    horizontal: 'left',
+                  },
+                  PaperProps: {
+                    style: {
+                      maxHeight: 300,
+                    },
+                  },
+                }}
+              >
+                {availableWeeks.map((week) => (
+                  <MenuItem key={week} value={week}>
+                    Semana {week} {currentSeason?.current_week === week ? '(Actual)' : ''}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            
+            {/* Botón de refresh - solo mostrar en semana actual */}
+            {currentSeason && selectedWeek === currentSeason.current_week && (
+              <Tooltip title="Actualizar scores en vivo">
+                <IconButton 
+                  onClick={refreshLiveScores}
+                  disabled={refreshing}
+                  size="small"
+                  sx={{ ml: 1 }}
+                >
+                  <RefreshIcon sx={{ 
+                    animation: refreshing ? 'spin 1s linear infinite' : 'none',
+                    '@keyframes spin': {
+                      '0%': { transform: 'rotate(0deg)' },
+                      '100%': { transform: 'rotate(360deg)' }
+                    }
+                  }} />
+                </IconButton>
+              </Tooltip>
+            )}
+          </Box>
 
           <Typography variant="h6" sx={{ fontWeight: 'bold', fontSize: { xs: '1rem', sm: '1.25rem' } }}>
             Semana {selectedWeek} - {matches.length} partidos
@@ -541,6 +599,14 @@ export default function MatchesPage() {
                         label={getStatusText(match.status)}
                         color={getStatusColor(match.status) as any}
                         size="small"
+                        sx={{
+                          animation: match.status === 'in_progress' ? 'pulse 2s infinite' : 'none',
+                          '@keyframes pulse': {
+                            '0%': { opacity: 1 },
+                            '50%': { opacity: 0.6 },
+                            '100%': { opacity: 1 }
+                          }
+                        }}
                       />
                     </TableCell>
                     <TableCell align="center" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
