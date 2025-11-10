@@ -492,13 +492,14 @@ export default function MatchesPage() {
             <Typography variant="h6" sx={{ fontWeight: 'bold', fontSize: { xs: '1rem', sm: '1.25rem' } }}>
               Semana {selectedWeek} - {matches.length} partidos
             </Typography>
-            {/* Indicador de auto-refresh */}
+            {/* Indicador de auto-refresh - solo visible en sm+ */}
             {autoRefreshActive && (
               <Chip
                 label="Auto-actualización activa"
                 color="success"
                 size="small"
                 sx={{
+                  display: { xs: 'none', sm: 'inline-flex' },
                   animation: 'pulse 2s infinite',
                   '@keyframes pulse': {
                     '0%': { opacity: 1 },
@@ -510,6 +511,26 @@ export default function MatchesPage() {
             )}
           </Box>
         </Box>
+
+        {/* Mensaje de auto-actualización para pantallas pequeñas */}
+        {autoRefreshActive && (
+          <Box sx={{ display: { xs: 'flex', sm: 'none' }, mb: 2, justifyContent: 'center' }}>
+            <Chip
+              label="🔄 Auto-actualización activa"
+              color="success"
+              size="small"
+              sx={{
+                fontSize: '0.75rem',
+                animation: 'pulse 2s infinite',
+                '@keyframes pulse': {
+                  '0%': { opacity: 1 },
+                  '50%': { opacity: 0.7 },
+                  '100%': { opacity: 1 }
+                }
+              }}
+            />
+          </Box>
+        )}
 
         {matches.length === 0 ? (
           <Alert severity="info">
@@ -540,7 +561,7 @@ export default function MatchesPage() {
                       <TableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1 } }}>
                         {/* Away Team Logo + Record */}
-                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.3 }}>
                           <Box
                             component="img"
                             src={getTeamLogo(match.away_team?.name || '', match.away_team?.city || '')}
@@ -557,7 +578,7 @@ export default function MatchesPage() {
                             }}
                           />
                           {match.away_team?.id && (
-                            <Typography variant="caption" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, color: 'text.secondary', mt: 0.2, letterSpacing: 0.2 }}>
+                            <Typography variant="caption" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, color: 'text.secondary', letterSpacing: 0.2 }}>
                               {teamRecords && teamRecords[match.away_team.id]
                                 ? `${teamRecords[match.away_team.id].wins}-${teamRecords[match.away_team.id].losses}${teamRecords[match.away_team.id].ties > 0 ? `-${teamRecords[match.away_team.id].ties}` : ''}`
                                 : '0-0'
@@ -570,17 +591,37 @@ export default function MatchesPage() {
                           {match.away_team?.abbreviation || 'TBD'}
                         </Typography>
                         
-                        {/* @ Separator */}
-                        <Typography variant="body2" color="text.secondary" fontWeight="bold" sx={{ mx: { xs: 0.5, sm: 0.5 } }}>
-                          @
-                        </Typography>
+                        {/* @ Separator + Status (en xs) */}
+                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.3 }}>
+                          <Typography variant="body2" color="text.secondary" fontWeight="bold" sx={{ mx: { xs: 0.5, sm: 0.5 } }}>
+                            @
+                          </Typography>
+                          {/* Status chip - solo visible en xs debajo del @ */}
+                          <Box sx={{ display: { xs: 'block', sm: 'none' } }}>
+                            <Chip 
+                              label={getStatusText(match.status)}
+                              color={getStatusColor(match.status) as any}
+                              size="small"
+                              sx={{
+                                fontSize: '0.65rem',
+                                height: '18px',
+                                animation: match.status === 'in_progress' ? 'pulse 2s infinite' : 'none',
+                                '@keyframes pulse': {
+                                  '0%': { opacity: 1 },
+                                  '50%': { opacity: 0.6 },
+                                  '100%': { opacity: 1 }
+                                }
+                              }}
+                            />
+                          </Box>
+                        </Box>
                         
                         {/* Home Team Abbreviation - oculto en xs */}
                         <Typography variant="body2" fontWeight="bold" sx={{ minWidth: { xs: 0, sm: 35 }, textAlign: 'center', fontSize: { xs: '0.75rem', sm: '0.875rem' }, display: { xs: 'none', sm: 'block' } }}>
                           {match.home_team?.abbreviation || 'TBD'}
                         </Typography>
                         {/* Home Team Logo + Record */}
-                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.3 }}>
                           <Box
                             component="img"
                             src={getTeamLogo(match.home_team?.name || '', match.home_team?.city || '')}
@@ -597,7 +638,7 @@ export default function MatchesPage() {
                             }}
                           />
                           {match.home_team?.id && (
-                            <Typography variant="caption" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, color: 'text.secondary', mt: 0.2, letterSpacing: 0.2 }}>
+                            <Typography variant="caption" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, color: 'text.secondary', letterSpacing: 0.2 }}>
                               {teamRecords && teamRecords[match.home_team.id]
                                 ? `${teamRecords[match.home_team.id].wins}-${teamRecords[match.home_team.id].losses}${teamRecords[match.home_team.id].ties > 0 ? `-${teamRecords[match.home_team.id].ties}` : ''}`
                                 : '0-0'
