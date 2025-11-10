@@ -15,11 +15,8 @@ import {
   Select,
   MenuItem,
   CircularProgress,
-  Chip,
-  IconButton,
-  Tooltip
+  Chip
 } from '@mui/material';
-import RefreshIcon from '@mui/icons-material/Refresh';
 import { seasonsService, teamsService } from '../services/supabase';
 import { supabase } from '../config/supabase';
 import OddsTooltip from '../components/ui/OddsTooltip';
@@ -57,7 +54,7 @@ export default function MatchesPage() {
   const [currentSeason, setCurrentSeason] = useState<any>(null);
   const [availableWeeks] = useState<number[]>(Array.from({ length: 18 }, (_, i) => i + 1));
   const [teamRecords, setTeamRecords] = useState<Record<number, { wins: number; losses: number; ties: number }> | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
+  const [autoRefreshActive, setAutoRefreshActive] = useState(false);
 
   // Función para obtener el logo del equipo basado en el nombre/ciudad
   const getTeamLogo = (teamName: string, teamCity: string) => {
@@ -141,6 +138,80 @@ export default function MatchesPage() {
       loadTeamRecords();
     }
   }, [selectedWeek, currentSeason]);
+
+  // Auto-refresh para partidos en progreso
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout | null = null;
+
+    // Función para verificar si hay partidos en progreso
+    const hasInProgressMatches = () => {
+      return matches.some(match => match.status === 'in_progress');
+    };
+
+    // Función para determinar si debemos activar auto-refresh
+    const shouldAutoRefresh = () => {
+      return currentSeason && 
+             selectedWeek === currentSeason.current_week && 
+             hasInProgressMatches();
+    };
+
+    if (shouldAutoRefresh()) {
+      setAutoRefreshActive(true);
+      console.log('🔄 Auto-refresh activado - partidos en progreso detectados');
+      
+      // Auto-refresh cada 90 segundos
+      intervalId = setInterval(async () => {
+        console.log('🔄 Auto-refreshing live scores...');
+        
+        try {
+          // Hacer la llamada API directamente aquí para evitar dependencias
+          const response = await fetch('/api/update-live-scores', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          const result = await response.json();
+          
+          if (response.ok) {
+            console.log('✅ Auto-refresh successful:', result);
+            // Recargar solo los datos de los partidos
+            const { data: matchesData } = await supabase
+              .from('matches')
+              .select(`
+                *,
+                home_team:teams!matches_home_team_id_fkey(id, name, city, abbreviation),
+                away_team:teams!matches_away_team_id_fkey(id, name, city, abbreviation)
+              `)
+              .eq('season_id', currentSeason.id)
+              .eq('week', selectedWeek)
+              .order('game_date');
+            
+            if (matchesData) {
+              setMatches(matchesData);
+            }
+          } else {
+            console.error('❌ Auto-refresh error:', result);
+          }
+        } catch (error) {
+          console.error('❌ Auto-refresh API error:', error);
+        }
+      }, 90000); // 90 segundos
+    } else {
+      setAutoRefreshActive(false);
+      if (intervalId) {
+        console.log('🔄 Auto-refresh desactivado');
+      }
+    }
+
+    // Cleanup
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [matches, selectedWeek, currentSeason]);
 
   const loadTeamRecords = async () => {
     if (!currentSeason) return;
@@ -227,37 +298,7 @@ export default function MatchesPage() {
     }
   };
 
-  const refreshLiveScores = async () => {
-    if (!currentSeason) return;
-    
-    try {
-      setRefreshing(true);
-      
-      // Llamar al endpoint de la API para actualizar scores en vivo
-      const response = await fetch('/api/update-live-scores', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      const result = await response.json();
-      
-      if (response.ok) {
-        console.log('Live scores updated:', result);
-        // Recargar los partidos de la semana actual para mostrar los cambios
-        if (selectedWeek === currentSeason.current_week) {
-          await loadMatches();
-        }
-      } else {
-        console.error('Error updating live scores:', result);
-      }
-    } catch (error) {
-      console.error('Error calling live scores API:', error);
-    } finally {
-      setRefreshing(false);
-    }
-  };
+
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -445,31 +486,29 @@ export default function MatchesPage() {
                 ))}
               </Select>
             </FormControl>
-            
-            {/* Botón de refresh - solo mostrar en semana actual */}
-            {currentSeason && selectedWeek === currentSeason.current_week && (
-              <Tooltip title="Actualizar scores en vivo">
-                <IconButton 
-                  onClick={refreshLiveScores}
-                  disabled={refreshing}
-                  size="small"
-                  sx={{ ml: 1 }}
-                >
-                  <RefreshIcon sx={{ 
-                    animation: refreshing ? 'spin 1s linear infinite' : 'none',
-                    '@keyframes spin': {
-                      '0%': { transform: 'rotate(0deg)' },
-                      '100%': { transform: 'rotate(360deg)' }
-                    }
-                  }} />
-                </IconButton>
-              </Tooltip>
-            )}
           </Box>
 
-          <Typography variant="h6" sx={{ fontWeight: 'bold', fontSize: { xs: '1rem', sm: '1.25rem' } }}>
-            Semana {selectedWeek} - {matches.length} partidos
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="h6" sx={{ fontWeight: 'bold', fontSize: { xs: '1rem', sm: '1.25rem' } }}>
+              Semana {selectedWeek} - {matches.length} partidos
+            </Typography>
+            {/* Indicador de auto-refresh */}
+            {autoRefreshActive && (
+              <Chip
+                label="Auto-actualización activa"
+                color="success"
+                size="small"
+                sx={{
+                  animation: 'pulse 2s infinite',
+                  '@keyframes pulse': {
+                    '0%': { opacity: 1 },
+                    '50%': { opacity: 0.7 },
+                    '100%': { opacity: 1 }
+                  }
+                }}
+              />
+            )}
+          </Box>
         </Box>
 
         {matches.length === 0 ? (
