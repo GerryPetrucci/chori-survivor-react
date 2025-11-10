@@ -8,8 +8,8 @@ on:
     - cron: '59 5 * * *'
     # Todos los días 5:30 AM CDMX (11:30 UTC) - Update weekly odds
     - cron: '30 11 * * *'
-    # Lunes 17:45 CDMX (11:45 UTC lunes) - Auto-assign weekly picks
-    - cron: '45 11 * * 1'
+    # Lunes 17:45 CDMX (23:45 UTC lunes) - Auto-assign weekly picks
+    - cron: '45 23 * * 1'
     # Domingos 5:00 AM CDMX (11:00 UTC domingo) - Update live scores
     - cron: '0 11 * * 0'
     # Lunes 12:00 PM CDMX (18:00 UTC) - Recordatorio usuarios sin picks
@@ -50,7 +50,7 @@ jobs:
     name: Actualizar Semana NFL
     runs-on: ubuntu-latest
     if: |
-      github.event.schedule == '0 11 * * 2,4' || 
+      (github.event_name == 'schedule' && github.event.schedule == '0 11 * * 2,4') || 
       (github.event_name == 'workflow_dispatch' && 
        (github.event.inputs.task == 'set-current-week' || github.event.inputs.task == 'all'))
     
@@ -80,7 +80,7 @@ jobs:
     name: Actualización Diaria de Partidos
     runs-on: ubuntu-latest
     if: |
-      github.event.schedule == '59 5 * * *' || 
+      (github.event_name == 'schedule' && github.event.schedule == '59 5 * * *') || 
       (github.event_name == 'workflow_dispatch' && 
        (github.event.inputs.task == 'daily-update' || github.event.inputs.task == 'all'))
     
@@ -155,7 +155,7 @@ jobs:
     name: Actualizar Momios Semanales
     runs-on: ubuntu-latest
     if: |
-      github.event.schedule == '30 11 * * *' || 
+      (github.event_name == 'schedule' && github.event.schedule == '30 11 * * *') || 
       (github.event_name == 'workflow_dispatch' && 
        (github.event.inputs.task == 'update-weekly-odds' || github.event.inputs.task == 'all'))
     
@@ -245,7 +245,7 @@ jobs:
     name: Auto-Assign Picks Semanal
     runs-on: ubuntu-latest
     if: |
-      github.event.schedule == '45 11 * * 1' || 
+      (github.event_name == 'schedule' && github.event.schedule == '45 23 * * 1') || 
       (github.event_name == 'workflow_dispatch' && 
        (github.event.inputs.task == 'auto-assign-picks' || github.event.inputs.task == 'all'))
     
@@ -392,7 +392,7 @@ jobs:
     name: Actualización de Scores en Vivo (Domingos)
     runs-on: ubuntu-latest
     if: |
-      github.event.schedule == '0 11 * * 0' || 
+      (github.event_name == 'schedule' && github.event.schedule == '0 11 * * 0') || 
       (github.event_name == 'workflow_dispatch' && 
        (github.event.inputs.task == 'update-live-scores' || github.event.inputs.task == 'all'))
     
@@ -593,7 +593,7 @@ jobs:
     name: Recordatorio Lunes - Usuarios Sin Picks
     runs-on: ubuntu-latest
     if: |
-      github.event.schedule == '0 18 * * 1' || 
+      (github.event_name == 'schedule' && github.event.schedule == '0 18 * * 1') || 
       (github.event_name == 'workflow_dispatch' && 
        github.event.inputs.task == 'send-monday-reminders')
     
@@ -635,7 +635,7 @@ jobs:
     name: Resultados Martes - Envío Semanal
     runs-on: ubuntu-latest
     if: |
-      github.event.schedule == '0 18 * * 2' || 
+      (github.event_name == 'schedule' && github.event.schedule == '0 18 * * 2') || 
       (github.event_name == 'workflow_dispatch' && 
        github.event.inputs.task == 'send-tuesday-results')
     
@@ -677,7 +677,7 @@ jobs:
     name: Recordatorio Jueves - Todos los Usuarios
     runs-on: ubuntu-latest
     if: |
-      github.event.schedule == '0 18 * * 4' || 
+      (github.event_name == 'schedule' && github.event.schedule == '0 18 * * 4') || 
       (github.event_name == 'workflow_dispatch' && 
        github.event.inputs.task == 'send-thursday-reminders')
     
