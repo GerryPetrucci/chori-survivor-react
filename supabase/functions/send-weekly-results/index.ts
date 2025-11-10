@@ -1,6 +1,3 @@
-// ARCHIVO COMPLETO PARA: supabase/functions/send-weekly-results/index.ts
-// Copia este código completo en el dashboard de Supabase o colócalo en la carpeta correspondiente
-
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 
@@ -26,13 +23,49 @@ interface CompetitionStats {
 }
 
 interface WeeklyResultsRequest {
-  to: string;
-  userName: string;
-  currentWeek: number;
-  userPicks: UserPick[];
-  weekStats: WeekStats;
-  competitionStats: CompetitionStats;
-  from?: string;
+  mode?: 'auto_all_users';
+  force_week?: number;
+  preview?: boolean;
+}
+
+// NFL Team logos mapping usando logos locales
+const NFL_LOGOS: { [key: string]: string } = {
+  'Cardinals': 'https://chori-survivor-react.vercel.app/assets/logos/cardinals_logo.png',
+  'Falcons': 'https://chori-survivor-react.vercel.app/assets/logos/falcons_logo.png',
+  'Ravens': 'https://chori-survivor-react.vercel.app/assets/logos/ravens_logo.png',
+  'Bills': 'https://chori-survivor-react.vercel.app/assets/logos/bills_logo.png',
+  'Panthers': 'https://chori-survivor-react.vercel.app/assets/logos/panthers_logo.png',
+  'Bears': 'https://chori-survivor-react.vercel.app/assets/logos/bears_logo.png',
+  'Bengals': 'https://chori-survivor-react.vercel.app/assets/logos/bengals_logo.png',
+  'Browns': 'https://chori-survivor-react.vercel.app/assets/logos/browns_logo.png',
+  'Cowboys': 'https://chori-survivor-react.vercel.app/assets/logos/cowboys_logo.png',
+  'Broncos': 'https://chori-survivor-react.vercel.app/assets/logos/broncos_logo.png',
+  'Lions': 'https://chori-survivor-react.vercel.app/assets/logos/lions_logo.png',
+  'Packers': 'https://chori-survivor-react.vercel.app/assets/logos/packers_logo.png',
+  'Texans': 'https://chori-survivor-react.vercel.app/assets/logos/texans_logo.png',
+  'Colts': 'https://chori-survivor-react.vercel.app/assets/logos/colts_logo.png',
+  'Jaguars': 'https://chori-survivor-react.vercel.app/assets/logos/jaguars_logo.png',
+  'Chiefs': 'https://chori-survivor-react.vercel.app/assets/logos/chiefs_logo.png',
+  'Raiders': 'https://chori-survivor-react.vercel.app/assets/logos/raiders_logo.png',
+  'Chargers': 'https://chori-survivor-react.vercel.app/assets/logos/chargers_logo.png',
+  'Rams': 'https://chori-survivor-react.vercel.app/assets/logos/rams_logo.png',
+  'Dolphins': 'https://chori-survivor-react.vercel.app/assets/logos/dolphins_logo.png',
+  'Vikings': 'https://chori-survivor-react.vercel.app/assets/logos/vikings_logo.png',
+  'Patriots': 'https://chori-survivor-react.vercel.app/assets/logos/patriots_logo.png',
+  'Saints': 'https://chori-survivor-react.vercel.app/assets/logos/saints_logo.png',
+  'Giants': 'https://chori-survivor-react.vercel.app/assets/logos/giants_logo.png',
+  'Jets': 'https://chori-survivor-react.vercel.app/assets/logos/jets_logo.png',
+  'Eagles': 'https://chori-survivor-react.vercel.app/assets/logos/eagles_logo.png',
+  'Steelers': 'https://chori-survivor-react.vercel.app/assets/logos/steelers_logo.png',
+  '49ers': 'https://chori-survivor-react.vercel.app/assets/logos/49ers_logo.png',
+  'Seahawks': 'https://chori-survivor-react.vercel.app/assets/logos/seahawks_logo.png',
+  'Buccaneers': 'https://chori-survivor-react.vercel.app/assets/logos/buccaneers_logo.png',
+  'Titans': 'https://chori-survivor-react.vercel.app/assets/logos/titans_logo.png',
+  'Commanders': 'https://chori-survivor-react.vercel.app/assets/logos/commanders_logo.png'
+};
+
+function getTeamLogo(teamName: string): string {
+  return NFL_LOGOS[teamName] || '';
 }
 
 const corsHeaders = {
@@ -40,28 +73,311 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Funciones helper para obtener datos automáticamente
+async function getCurrentNFLWeek(supabase: any): Promise<number> {
+  try {
+    const { data: season } = await supabase
+      .from('seasons')
+      .select('current_week')
+      .eq('is_active', true)
+      .single();
+    
+    return season?.current_week || 1;
+  } catch (error) {
+    console.error('Error getting current week:', error);
+    return 1;
+  }
+}
+
+async function getUsersForResults(supabase: any): Promise<any[]> {
+  try {
+    const { data: season } = await supabase
+      .from('seasons')
+      .select('id')
+      .eq('is_active', true)
+      .single();
+    
+    if (!season) throw new Error('No active season found');
+    
+    console.log('Season found:', season.id);
+    
+    const { data: activeEntries } = await supabase
+      .from('entries')
+      .select('user_id')
+      .eq('season_id', season.id)
+      .eq('is_active', true);
+    
+    if (!activeEntries || activeEntries.length === 0) {
+      console.log('No active entries found');
+      return [];
+    }
+    
+    console.log('Active entries found:', activeEntries.length);
+    
+    const userIds = [...new Set(activeEntries.map(entry => entry.user_id))];
+    console.log('Unique user IDs:', userIds.length);
+    
+    const { data: users } = await supabase
+      .from('user_profiles')
+      .select('id, username, email')
+      .in('id', userIds);
+    
+    console.log('Users retrieved:', users?.length || 0);
+    return users || [];
+  } catch (error) {
+    console.error('Error getting users for results:', error);
+    return [];
+  }
+}
+
+async function getUserPicksForWeek(supabase: any, userId: string, week: number): Promise<UserPick[]> {
+  try {
+    const { data: season } = await supabase
+      .from('seasons')
+      .select('id')
+      .eq('is_active', true)
+      .single();
+    
+    if (!season) return [];
+    
+    console.log(`Getting picks for user ${userId}, week ${week}, season ${season.id}`);
+    
+    const { data: userEntries } = await supabase
+      .from('entries')
+      .select('id, entry_name')
+      .eq('user_id', userId)
+      .eq('season_id', season.id)
+      .eq('is_active', true);
+    
+    if (!userEntries || userEntries.length === 0) {
+      console.log(`No active entries found for user ${userId}`);
+      return [];
+    }
+    
+    console.log(`Found ${userEntries.length} entries for user ${userId}`);
+    
+    const entryIds = userEntries.map(entry => entry.id);
+    
+    const { data: picks } = await supabase
+      .from('picks')
+      .select(`
+        entry_id,
+        teams:teams(name),
+        matches:matches(
+          home_score,
+          away_score,
+          status,
+          home_team:teams!matches_home_team_id_fkey(name),
+          away_team:teams!matches_away_team_id_fkey(name)
+        )
+      `)
+      .eq('week', week)
+      .in('entry_id', entryIds);
+    
+    if (!picks) {
+      console.log(`No picks found for user ${userId} entries in week ${week}`);
+      return [];
+    }
+    
+    console.log(`Found ${picks.length} picks for user ${userId} in week ${week}`);
+    
+    return picks.map((pick: any) => {
+      const entry = userEntries.find(e => e.id === pick.entry_id);
+      const entryName = entry ? entry.entry_name : 'Unknown Entry';
+      
+      const match = pick.matches;
+      let result: 'W' | 'T' | 'L' = 'L';
+      let score = '';
+      
+      if (match && match.status === 'completed') {
+        const homeWin = match.home_score > match.away_score;
+        const awayWin = match.away_score > match.home_score;
+        const tie = match.home_score === match.away_score;
+        
+        const selectedTeam = pick.teams.name;
+        const isHomeTeam = selectedTeam === match.home_team.name;
+        const isAwayTeam = selectedTeam === match.away_team.name;
+        
+        if (tie) {
+          result = 'T';
+        } else if ((isHomeTeam && homeWin) || (isAwayTeam && awayWin)) {
+          result = 'W';
+        } else {
+          result = 'L';
+        }
+        
+        score = `${match.home_team.name} ${match.home_score} - ${match.away_score} ${match.away_team.name}`;
+      }
+      
+      return {
+        entry_name: entryName,
+        team_picked: pick.teams.name,
+        result,
+        score
+      };
+    });
+  } catch (error) {
+    console.error('Error getting user picks for week:', error);
+    return [];
+  }
+}
+
+async function getWeekStats(supabase: any, week: number): Promise<WeekStats> {
+  try {
+    const { data: season } = await supabase
+      .from('seasons')
+      .select('id')
+      .eq('is_active', true)
+      .single();
+    
+    if (!season) return { total_picks: 0, correct_picks: 0, wins: 0, ties: 0, losses: 0 };
+    
+    const { data: picks } = await supabase
+      .from('picks')
+      .select(`
+        teams:teams(name),
+        matches:matches(
+          home_score,
+          away_score,
+          status,
+          home_team:teams!matches_home_team_id_fkey(name),
+          away_team:teams!matches_away_team_id_fkey(name)
+        ),
+        entries:entries!inner(season_id, is_active)
+      `)
+      .eq('week', week)
+      .eq('entries.season_id', season.id)
+      .eq('entries.is_active', true);
+    
+    if (!picks) return { total_picks: 0, correct_picks: 0, wins: 0, ties: 0, losses: 0 };
+    
+    let wins = 0;
+    let ties = 0;
+    let losses = 0;
+    
+    picks.forEach((pick: any) => {
+      const match = pick.matches;
+      if (match && match.status === 'completed') {
+        const homeWin = match.home_score > match.away_score;
+        const awayWin = match.away_score > match.home_score;
+        const tie = match.home_score === match.away_score;
+        
+        const selectedTeam = pick.teams.name;
+        const isHomeTeam = selectedTeam === match.home_team.name;
+        const isAwayTeam = selectedTeam === match.away_team.name;
+        
+        if (tie) {
+          ties++;
+        } else if ((isHomeTeam && homeWin) || (isAwayTeam && awayWin)) {
+          wins++;
+        } else {
+          losses++;
+        }
+      }
+    });
+    
+    return {
+      total_picks: picks.length,
+      correct_picks: wins + ties,
+      wins,
+      ties,
+      losses
+    };
+  } catch (error) {
+    console.error('Error getting week stats:', error);
+    return { total_picks: 0, correct_picks: 0, wins: 0, ties: 0, losses: 0 };
+  }
+}
+
+async function getCompetitionStats(supabase: any): Promise<CompetitionStats> {
+  try {
+    const { data: season } = await supabase
+      .from('seasons')
+      .select('id')
+      .eq('is_active', true)
+      .single();
+    
+    if (!season) return { alive: 0, last_chance: 0, eliminated: 0 };
+    
+    // Query para obtener TODAS las entradas (activas e inactivas) con su status
+    const { data: entries, error } = await supabase
+      .from('entries')
+      .select('id, status, is_active')
+      .eq('season_id', season.id);
+
+    if (error) {
+      console.error('Error querying entries for competition stats:', error);
+      return { alive: 0, last_chance: 0, eliminated: 0 };
+    }
+
+    if (!entries || entries.length === 0) {
+      console.log('No entries found for competition stats');
+      return { alive: 0, last_chance: 0, eliminated: 0 };
+    }
+
+    let alive = 0;
+    let lastChance = 0;
+    let eliminated = 0;
+
+    entries.forEach((entry: any) => {
+      const status = entry.status;
+
+      if (status === 'alive') {
+        alive++;
+      } else if (status === 'last_chance') {
+        lastChance++;
+      } else if (status === 'eliminated') {
+        eliminated++;
+      }
+    });
+
+    console.log(`Competition stats computed: alive=${alive}, last_chance=${lastChance}, eliminated=${eliminated}`);
+
+    return { alive, last_chance: lastChance, eliminated };
+  } catch (error) {
+    console.error('Error getting competition stats:', error);
+    return { alive: 0, last_chance: 0, eliminated: 0 };
+  }
+}
+
 function generateBarChart(value: number, total: number, color: string): string {
-  const percentage = Math.round((value / total) * 100);
-  const barWidth = Math.floor((percentage / 100) * 30); // Max 30 caracteres
-  const bar = '█'.repeat(barWidth) + '░'.repeat(30 - barWidth);
-  
+  // Evitar división por cero
+  const safeTotal = (typeof total === 'number' && total > 0) ? total : 0;
+  const percentage = safeTotal > 0 ? Math.round((value / safeTotal) * 100) : 0;
+  const barWidth = safeTotal > 0 ? Math.floor((percentage / 100) * 200) : 0;
+
   return `
     <tr>
       <td style="padding:8px 0;">
-        <div style="font-family:monospace; font-size:12px; color:${color}; display:flex; align-items:center;">
-          <span style="display:inline-block; min-width:80px;">${value} (${percentage}%)</span>
-          <span style="letter-spacing:2px;">${bar}</span>
-        </div>
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr>
+            <td style="width:80px; font-size:12px; color:${color}; font-weight:bold;">
+              ${value} (${percentage}%)
+            </td>
+            <td style="padding-left:10px;">
+              <div style="background-color:#e5e7eb; height:12px; border-radius:6px; width:200px; overflow:hidden;">
+                <div style="background-color:${color}; height:12px; width:${barWidth}px; border-radius:6px; transition:width 0.3s ease;"></div>
+              </div>
+            </td>
+          </tr>
+        </table>
       </td>
     </tr>
   `;
 }
 
-function generateWeeklyResultsHTML(data: WeeklyResultsRequest): string {
-  const wins = data.userPicks.filter(p => p.result === 'W').length;
-  const ties = data.userPicks.filter(p => p.result === 'T').length;
-  const losses = data.userPicks.filter(p => p.result === 'L').length;
-  const totalUserPicks = data.userPicks.length;
+interface WeeklyResultsData {
+  userName: string;
+  currentWeek: number;
+  userPicks: UserPick[];
+  weekStats: WeekStats;
+  competitionStats: CompetitionStats;
+}
+
+function generateWeeklyResultsHTML(data: WeeklyResultsData): string {
+  const winRate = data.userPicks.length > 0 
+    ? Math.round((data.userPicks.filter(p => p.result === 'W').length / data.userPicks.length) * 100)
+    : 0;
   
   return `
   <!DOCTYPE html>
@@ -69,22 +385,18 @@ function generateWeeklyResultsHTML(data: WeeklyResultsRequest): string {
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Resultados Semanales - Semana ${data.currentWeek}</title>
+    <title>Resultados de la Semana ${data.currentWeek}</title>
   </head>
   <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; margin:0; padding:0;">
     <table width="100%" bgcolor="#f4f4f4" cellpadding="0" cellspacing="0" style="margin:0; padding:0;">
       <tr>
         <td align="center">
           <table width="600" cellpadding="0" cellspacing="0" style="background:#fff; border-radius:10px; box-shadow:0 0 20px rgba(0,0,0,0.08); margin:20px auto;">
-            <!-- Header con logo -->
+            <!-- Header con gradiente unificado -->
             <tr>
-              <td align="center" style="padding:30px 20px 10px 20px; background-color:#10b981; border-top-left-radius:10px; border-top-right-radius:10px;">
+              <td align="center" style="padding:30px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-top-left-radius:10px; border-top-right-radius:10px;">
                 <img src="https://i.imgur.com/CkMST9l.png" alt="Chori Survivor" width="120" style="display:block; margin:auto;">
-              </td>
-            </tr>
-            <tr>
-              <td align="center" style="padding:0 20px 20px 20px; background-color:#10b981; color:#fff;">
-                <h2 style="margin:0; font-size:24px; font-weight:bold;">📊 Resultados - Semana ${data.currentWeek}</h2>
+                <h2 style="margin:15px 0 0 0; font-size:24px; font-weight:bold; color:#fff;">📊 Resultados - Semana ${data.currentWeek}</h2>
               </td>
             </tr>
             
@@ -92,135 +404,116 @@ function generateWeeklyResultsHTML(data: WeeklyResultsRequest): string {
             <tr>
               <td style="padding:30px 30px 10px 30px;">
                 <h3 style="margin-top:0;">¡Hola ${data.userName}! 👋</h3>
-                <p>Aquí están los resultados de tus picks de la <strong>Semana ${data.currentWeek}</strong>.</p>
+                <p>Aquí tienes el resumen de los resultados de la <strong>Semana ${data.currentWeek}</strong> de la NFL.</p>
                 
-                <!-- Resumen de Picks del Usuario -->
+                <!-- Tus Picks -->
+                ${data.userPicks.length > 0 ? `
                 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8f9fa; border-radius:10px; margin:25px 0;">
                   <tr>
                     <td style="padding:20px;">
-                      <h3 style="margin:0 0 15px 0; color:#495057;">🎯 Tus Resultados</h3>
+                      <h3 style="margin:0 0 15px 0; color:#495057;">🎯 Tus Picks (${data.userPicks.length})</h3>
+                      <p style="margin:0 0 15px 0; color:#6c757d;">Tu porcentaje de aciertos: <strong style="color:#1864ab;">${winRate}%</strong></p>
                       
-                      ${data.userPicks.map(pick => {
-                        const bgColor = pick.result === 'W' ? '#d1fae5' : pick.result === 'T' ? '#fef3c7' : '#fee2e2';
-                        const borderColor = pick.result === 'W' ? '#10b981' : pick.result === 'T' ? '#f59e0b' : '#ef4444';
-                        const emoji = pick.result === 'W' ? '✅' : pick.result === 'T' ? '⚖️' : '❌';
-                        const resultText = pick.result === 'W' ? 'Victoria' : pick.result === 'T' ? 'Empate' : 'Derrota';
-                        
-                        return `
-                          <table width="100%" cellpadding="10" cellspacing="0" style="background:${bgColor}; border:2px solid ${borderColor}; border-radius:8px; margin-bottom:12px;">
-                            <tr>
-                              <td>
-                                <div style="font-weight:bold; color:#1f2937; margin-bottom:5px;">
-                                  ${emoji} ${pick.entry_name}
-                                </div>
-                                <div style="color:#4b5563; font-size:14px; margin-bottom:5px;">
-                                  <strong>Pick:</strong> ${pick.team_picked}
-                                </div>
-                                <div style="color:#6b7280; font-size:13px; margin-bottom:5px;">
-                                  ${pick.score}
-                                </div>
-                                <div style="font-weight:bold; color:${borderColor}; font-size:14px;">
-                                  ${resultText}
-                                </div>
-                              </td>
-                            </tr>
-                          </table>
-                        `;
-                      }).join('')}
-                      
-                      <!-- Resumen Personal -->
-                      <table width="100%" cellpadding="10" cellspacing="0" style="background:#fff; border:1px solid #e5e7eb; border-radius:8px; margin-top:15px;">
-                        <tr>
-                          <td width="33%" align="center" style="border-right:1px solid #e5e7eb;">
-                            <div style="font-size:24px; font-weight:bold; color:#10b981;">${wins}</div>
-                            <div style="font-size:12px; color:#6b7280;">VICTORIAS</div>
-                          </td>
-                          <td width="33%" align="center" style="border-right:1px solid #e5e7eb;">
-                            <div style="font-size:24px; font-weight:bold; color:#f59e0b;">${ties}</div>
-                            <div style="font-size:12px; color:#6b7280;">EMPATES</div>
-                          </td>
-                          <td width="34%" align="center">
-                            <div style="font-size:24px; font-weight:bold; color:#ef4444;">${losses}</div>
-                            <div style="font-size:12px; color:#6b7280;">DERROTAS</div>
-                          </td>
-                        </tr>
-                      </table>
+                      ${data.userPicks.map(pick => `
+                        <table width="100%" cellpadding="15" cellspacing="0" style="background:#fff; border:1px solid #dee2e6; border-radius:8px; margin-bottom:15px;">
+                          <tr>
+                            <td width="40%" align="center">
+                              <table cellpadding="0" cellspacing="0" width="100%">
+                                <tr>
+                                  <td align="center" style="padding-bottom:8px;">
+                                    ${getTeamLogo(pick.team_picked) ? `<img src="${getTeamLogo(pick.team_picked)}" alt="${pick.team_picked}" width="60" height="60" style="max-width:60px; max-height:60px; object-fit:contain;">` : ''}
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <td align="center">
+                                    <div style="font-weight:bold; color:#495057; font-size:13px; margin-bottom:3px;">${pick.entry_name}</div>
+                                    <div style="color:#6c757d; font-size:11px;">${pick.team_picked}</div>
+                                  </td>
+                                </tr>
+                              </table>
+                            </td>
+                            <td width="20%" align="center">
+                              <div style="font-size:32px; font-weight:bold;">
+                                ${pick.result === 'W' ? '✅' : pick.result === 'T' ? '🟡' : '❌'}
+                              </div>
+                              <div style="font-size:12px; color:#6c757d; margin-top:5px; font-weight:bold;">
+                                ${pick.result === 'W' ? 'GANÓ' : pick.result === 'T' ? 'EMPATE' : 'PERDIÓ'}
+                              </div>
+                            </td>
+                            <td width="40%" align="center" style="color:#495057; font-size:11px; line-height:1.4;">
+                              ${pick.score || 'Partido pendiente'}
+                            </td>
+                          </tr>
+                        </table>
+                      `).join('')}
                     </td>
                   </tr>
                 </table>
+                ` : ''}
                 
-                <!-- Estadísticas de la Semana (Todos los Picks) -->
-                <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8f9fa; border-radius:10px; margin:25px 0;">
+                <!-- Estadísticas de la Semana -->
+                <table width="100%" cellpadding="0" cellspacing="0" style="background:#e7f5ff; border:1px solid #4dabf7; border-radius:10px; margin:25px 0;">
                   <tr>
                     <td style="padding:20px;">
-                      <h3 style="margin:0 0 15px 0; color:#495057;">📈 Estadísticas de la Semana</h3>
-                      <p style="margin:0 0 15px 0; color:#6b7280; font-size:14px;">Total de ${data.weekStats.total_picks} picks registrados en el pool</p>
+                      <h3 style="margin:0 0 20px 0; color:#1864ab;">📈 Estadísticas de la Semana ${data.currentWeek}</h3>
                       
-                      <table width="100%" cellpadding="0" cellspacing="0" style="background:#fff; border:1px solid #e5e7eb; border-radius:8px; padding:15px;">
+                      <table width="100%" cellpadding="0" cellspacing="0">
                         <tr>
-                          <td style="padding:8px 0; color:#10b981; font-weight:bold;">
-                            ✅ Victorias
+                          <td style="color:#1864ab; font-weight:bold; padding-bottom:15px;">
+                            Picks Totales: ${data.weekStats.total_picks}
                           </td>
                         </tr>
-                        ${generateBarChart(data.weekStats.wins, data.weekStats.total_picks, '#10b981')}
-                        
                         <tr>
-                          <td style="padding:8px 0; color:#f59e0b; font-weight:bold;">
-                            ⚖️ Empates
+                          <td style="color:#28a745; font-weight:bold;">
+                            ✅ Ganados: 
                           </td>
                         </tr>
-                        ${generateBarChart(data.weekStats.ties, data.weekStats.total_picks, '#f59e0b')}
-                        
+                        ${generateBarChart(data.weekStats.wins, data.weekStats.total_picks, '#28a745')}
+                        ${data.weekStats.ties > 0 ? `
                         <tr>
-                          <td style="padding:8px 0; color:#ef4444; font-weight:bold;">
-                            ❌ Derrotas
+                          <td style="color:#ffc107; font-weight:bold;">
+                            🟡 Empates:
                           </td>
                         </tr>
-                        ${generateBarChart(data.weekStats.losses, data.weekStats.total_picks, '#ef4444')}
-                        
+                        ${generateBarChart(data.weekStats.ties, data.weekStats.total_picks, '#ffc107')}
+                        ` : ''}
                         <tr>
-                          <td style="padding:15px 0 0 0; border-top:1px solid #e5e7eb; margin-top:10px;">
-                            <div style="font-size:14px; color:#6b7280;">
-                              <strong style="color:#1f2937;">Tasa de aciertos:</strong> 
-                              ${Math.round((data.weekStats.correct_picks / data.weekStats.total_picks) * 100)}% 
-                              (${data.weekStats.correct_picks} correctos de ${data.weekStats.total_picks})
-                            </div>
+                          <td style="color:#dc3545; font-weight:bold;">
+                            ❌ Perdidos:
                           </td>
                         </tr>
+                        ${generateBarChart(data.weekStats.losses, data.weekStats.total_picks, '#dc3545')}
                       </table>
                     </td>
                   </tr>
                 </table>
                 
                 <!-- Estado de la Competencia -->
-                <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8f9fa; border-radius:10px; margin:25px 0;">
+                <table width="100%" cellpadding="0" cellspacing="0" style="background:#fff3cd; border:1px solid #ffeaa7; border-radius:10px; margin:25px 0;">
                   <tr>
                     <td style="padding:20px;">
-                      <h3 style="margin:0 0 15px 0; color:#495057;">🏆 Estado de la Competencia</h3>
+                      <h3 style="margin:0 0 20px 0; color:#856404;">🏆 Estado de la Competencia</h3>
                       
-                      <table width="100%" cellpadding="12" cellspacing="0" style="background:#fff; border:1px solid #e5e7eb; border-radius:8px;">
-                        <tr style="border-bottom:1px solid #e5e7eb;">
-                          <td width="33%" align="center" style="padding:15px;">
-                            <div style="font-size:32px; font-weight:bold; color:#10b981;">${data.competitionStats.alive}</div>
-                            <div style="font-size:12px; color:#6b7280; margin-top:5px;">🟢 ALIVE</div>
-                            <div style="font-size:11px; color:#9ca3af;">Sin derrotas</div>
-                          </td>
-                          <td width="33%" align="center" style="padding:15px; border-left:1px solid #e5e7eb; border-right:1px solid #e5e7eb;">
-                            <div style="font-size:32px; font-weight:bold; color:#f59e0b;">${data.competitionStats.last_chance}</div>
-                            <div style="font-size:12px; color:#6b7280; margin-top:5px;">🟡 LAST CHANCE</div>
-                            <div style="font-size:11px; color:#9ca3af;">Una derrota</div>
-                          </td>
-                          <td width="34%" align="center" style="padding:15px;">
-                            <div style="font-size:32px; font-weight:bold; color:#ef4444;">${data.competitionStats.eliminated}</div>
-                            <div style="font-size:12px; color:#6b7280; margin-top:5px;">🔴 ELIMINADOS</div>
-                            <div style="font-size:11px; color:#9ca3af;">Dos+ derrotas</div>
+                      <table width="100%" cellpadding="0" cellspacing="0">
+                        <tr>
+                          <td style="color:#28a745; font-weight:bold;">
+                            💚 Vivos (0 derrotas):
                           </td>
                         </tr>
+                        ${generateBarChart(data.competitionStats.alive, data.competitionStats.alive + data.competitionStats.last_chance + data.competitionStats.eliminated, '#28a745')}
+                        <tr>
+                          <td style="color:#ffc107; font-weight:bold;">
+                            ⚠️ Última oportunidad (1 derrota):
+                          </td>
+                        </tr>
+                        ${generateBarChart(data.competitionStats.last_chance, data.competitionStats.alive + data.competitionStats.last_chance + data.competitionStats.eliminated, '#ffc107')}
+                        <tr>
+                          <td style="color:#dc3545; font-weight:bold;">
+                            💀 Eliminados (2+ derrotas):
+                          </td>
+                        </tr>
+                        ${generateBarChart(data.competitionStats.eliminated, data.competitionStats.alive + data.competitionStats.last_chance + data.competitionStats.eliminated, '#dc3545')}
                       </table>
-                      
-                      <p style="margin:15px 0 0 0; color:#6b7280; font-size:13px; text-align:center;">
-                        Total de usuarios activos: ${data.competitionStats.alive + data.competitionStats.last_chance + data.competitionStats.eliminated}
-                      </p>
                     </td>
                   </tr>
                 </table>
@@ -229,14 +522,14 @@ function generateWeeklyResultsHTML(data: WeeklyResultsRequest): string {
                 <table width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0;">
                   <tr>
                     <td align="center">
-                      <a href="https://chori-survivor-react.vercel.app/ranking" style="display:inline-block; background-color:#10b981; color:#fff; padding:15px 30px; text-decoration:none; border-radius:8px; font-weight:bold; font-size:16px; border:none;">
+                      <a href="https://chori-survivor-react.vercel.app/ranking" style="display:inline-block; background-color:#764ba2; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:#fff; padding:15px 30px; text-decoration:none; border-radius:8px; font-weight:bold; font-size:16px; border:none; box-shadow: 0 4px 15px rgba(118, 75, 162, 0.3);">
                         📊 Ver Ranking Completo
                       </a>
                     </td>
                   </tr>
                 </table>
                 
-                <p style="text-align:center; color:#868e96; font-size:14px;">¡Sigue así y buena suerte en la siguiente semana! 🏈</p>
+                <p style="text-align:center; color:#868e96; font-size:14px;">¡Sigue compitiendo y que tengas suerte la próxima semana! �</p>
               </td>
             </tr>
             
@@ -256,7 +549,7 @@ function generateWeeklyResultsHTML(data: WeeklyResultsRequest): string {
   `;
 }
 
-serve(async (req) => {
+serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -267,20 +560,9 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const requestData: WeeklyResultsRequest = await req.json();
-
-    if (!requestData.to || !requestData.userName || !requestData.currentWeek) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields: to, userName, currentWeek' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const html = generateWeeklyResultsHTML(requestData);
-    const subject = `📊 Resultados de la Semana ${requestData.currentWeek}`;
-    const from = requestData.from || 'Chori Survivor <noreply@chori-survivor.com>';
+    const mode = requestData.mode || 'auto_all_users';
 
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
-    
     if (!RESEND_API_KEY) {
       return new Response(
         JSON.stringify({ error: 'RESEND_API_KEY not configured' }),
@@ -288,44 +570,171 @@ serve(async (req) => {
       );
     }
 
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${RESEND_API_KEY}`
-      },
-      body: JSON.stringify({
-        from,
-        to: [requestData.to],
-        subject,
-        html
-      })
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      console.error('Error from Resend:', result);
+    // Validar modo
+    if (mode !== 'auto_all_users') {
       return new Response(
-        JSON.stringify({ error: result.message || 'Failed to send email', details: result }),
-        { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Invalid mode. Use auto_all_users' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    await supabase.from('email_logs').insert({
-      recipient: requestData.to,
-      subject,
-      provider: 'resend',
-      status: 'sent',
-      resend_id: result.id,
-      sent_at: new Date().toISOString()
-    });
+    // Modo automático - obtener datos de la BD
+    const currentWeek = requestData.force_week || await getCurrentNFLWeek(supabase);
+    const users = await getUsersForResults(supabase);
+    const weekStats = await getWeekStats(supabase, currentWeek);
+    const competitionStats = await getCompetitionStats(supabase);
+
+    if (users.length === 0) {
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'No users found for results',
+          mode,
+          currentWeek 
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Modo preview - solo devolver datos sin enviar emails
+    const preview = requestData.preview === true;
+    
+    if (preview) {
+      const previewData = [];
+      
+      for (const user of users) {
+        try {
+          const userPicks = await getUserPicksForWeek(supabase, user.id, currentWeek);
+          
+          previewData.push({
+            user: {
+              id: user.id,
+              email: user.email,
+              username: user.username
+            },
+            emailData: {
+              subject: `📊 Resultados de la Semana ${currentWeek}`,
+              userName: user.username || user.email || 'Usuario',
+              currentWeek,
+              userPicks,
+              weekStats,
+              competitionStats
+            },
+            stats: {
+              picks_count: userPicks.length,
+              wins: userPicks.filter((p: any) => p.result === 'W').length,
+              ties: userPicks.filter((p: any) => p.result === 'T').length,
+              losses: userPicks.filter((p: any) => p.result === 'L').length
+            }
+          });
+          
+          // Solo mostrar un ejemplo
+          if (previewData.length >= 2) break;
+          
+        } catch (error: any) {
+          console.error(`Error processing user ${user.email}:`, error);
+        }
+      }
+      
+      return new Response(
+        JSON.stringify({ 
+          success: true,
+          mode,
+          currentWeek,
+          preview: true,
+          total_users_found: users.length,
+          weekStats,
+          competitionStats,
+          sample_users: previewData
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const results = [];
+    const from = 'Chori Survivor <noreply@chori-survivor.com>';
+    const subject = `📊 Resultados de la Semana ${currentWeek}`;
+
+    // Enviar emails a cada usuario
+    for (const user of users) {
+      try {
+        const userPicks = await getUserPicksForWeek(supabase, user.id, currentWeek);
+
+        const html = generateWeeklyResultsHTML({
+          userName: user.username || user.email || 'Usuario',
+          currentWeek,
+          userPicks,
+          weekStats,
+          competitionStats
+        });
+
+        const response = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${RESEND_API_KEY}`
+          },
+          body: JSON.stringify({
+            from,
+            to: [user.email],
+            subject,
+            html
+          })
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          await supabase.from('email_logs').insert({
+            recipient: user.email,
+            subject,
+            provider: 'resend',
+            status: 'sent',
+            resend_id: result.id,
+            sent_at: new Date().toISOString()
+          });
+
+          results.push({ 
+            user: user.email, 
+            status: 'sent', 
+            id: result.id,
+            picks_count: userPicks.length,
+            wins: userPicks.filter(p => p.result === 'W').length
+          });
+        } else {
+          console.error(`Failed to send to ${user.email}:`, result);
+          results.push({ 
+            user: user.email, 
+            status: 'failed', 
+            error: result.message || 'Unknown error' 
+          });
+        }
+
+        // Pequeña pausa entre emails para no sobrecargar Resend
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+      } catch (userError: any) {
+        console.error(`Error processing user ${user.email}:`, userError);
+        results.push({ 
+          user: user.email, 
+          status: 'error', 
+          error: userError.message 
+        });
+      }
+    }
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Weekly results sent successfully',
-        id: result.id
+        message: `Weekly results processed for ${results.length} users`,
+        mode,
+        currentWeek,
+        weekStats,
+        competitionStats,
+        results: results.slice(0, 10), // Limitar a 10 resultados para evitar respuestas muy grandes
+        total_processed: results.length,
+        successful: results.filter(r => r.status === 'sent').length,
+        failed: results.filter(r => r.status !== 'sent').length
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

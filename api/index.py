@@ -11,6 +11,11 @@ import asyncio
 from pydantic import BaseModel
 from math import floor
 
+# Load environment variables from .env.local
+load_dotenv('.env.local')
+# Also try loading from .env as fallback
+load_dotenv('.env')
+
 # Configuracion de logging
 logging.basicConfig(
     level=logging.INFO,
@@ -2322,6 +2327,425 @@ async def complete_sunday_matches():
         logger.error(f"❌ ERROR en complete_sunday_matches: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+# --- ENDPOINTS DE PRUEBA PARA EDGE FUNCTIONS ---
+@app.post("/test-weekly-reminder")
+async def test_weekly_reminder():
+    """
+    Endpoint de prueba para simular el envío de recordatorio semanal
+    usando datos de la semana 9 con tu email
+    """
+    try:
+        # Datos de prueba para la semana 9
+        # Calcular la fecha límite real (último partido de la semana)
+        # Para semana 9, el último partido es Monday Night Football
+        deadline_date = datetime(2024, 11, 18, 20, 15)  # Lunes 18 Nov, 8:15 PM EST
+        deadline_formatted = deadline_date.strftime("Lunes %d de Noviembre, %I:%M %p EST")
+        
+        test_data = {
+            "mode": "manual",
+            "to": "gerry_petrucci_developer@outlook.com",
+            "userName": "Gerry Petrucci",
+            "currentWeek": 9,
+            "deadline": deadline_formatted,
+            "entries": [
+                {
+                    "entry_name": "Gerry's Main Entry",
+                    "has_pick": False
+                },
+                {
+                    "entry_name": "Gerry's Backup", 
+                    "has_pick": True,
+                    "team_picked": "Kansas City Chiefs"
+                },
+                {
+                    "entry_name": "Test Entry #3",
+                    "has_pick": False
+                }
+            ],
+            "topMatches": [
+                {
+                    "home_team": "Buffalo Bills",
+                    "away_team": "Indianapolis Colts",
+                    "home_percentage": 78,
+                    "away_percentage": 22,
+                    "difference": 56
+                },
+                {
+                    "home_team": "Detroit Lions", 
+                    "away_team": "Jacksonville Jaguars",
+                    "home_percentage": 82,
+                    "away_percentage": 18,
+                    "difference": 64
+                },
+                {
+                    "home_team": "San Francisco 49ers",
+                    "away_team": "Tampa Bay Buccaneers", 
+                    "home_percentage": 73,
+                    "away_percentage": 27,
+                    "difference": 46
+                }
+            ],
+            "byeTeams": ["Dallas Cowboys", "New York Jets", "Seattle Seahawks", "Tennessee Titans"]
+        }
+        
+        logger.info("📧 Testing Weekly Reminder with data:")
+        logger.info(f"   Email: {test_data['to']}")
+        logger.info(f"   Week: {test_data['currentWeek']}")
+        logger.info(f"   Entries without picks: {len([e for e in test_data['entries'] if not e['has_pick']])}")
+        
+        # Llamar a la edge function real de Supabase
+        SUPABASE_URL = os.getenv("VITE_SUPABASE_URL")
+        # Prefer server-only key (no VITE_ prefix for security)
+        SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("VITE_SUPABASE_SERVICE_ROLE_KEY")
+        SUPABASE_ANON_KEY = os.getenv("VITE_SUPABASE_ANON_KEY")
+        
+        # Usar service key si está disponible, sino usar anon key para probar
+        auth_key = SUPABASE_SERVICE_KEY if SUPABASE_SERVICE_KEY else SUPABASE_ANON_KEY
+        
+        if not SUPABASE_URL or not auth_key:
+            return {
+                "status": "error",
+                "message": "Supabase credentials not configured",
+                "function_data": test_data,
+                "note": "Configura VITE_SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY para enviar emails"
+            }
+        
+        # Llamar a la edge function
+        edge_function_url = f"{SUPABASE_URL}/functions/v1/send-weekly-reminders"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {auth_key}",
+            "apikey": auth_key
+        }
+        
+        logger.info(f"🔑 Using auth key: {'service_role' if SUPABASE_SERVICE_KEY else 'anon'}")
+        logger.info(f"🌐 Calling: {edge_function_url}")
+        
+        try:
+            response = requests.post(edge_function_url, json=test_data, headers=headers, timeout=30)
+            
+            if response.status_code == 200:
+                result = response.json()
+                logger.info(f"✅ Email sent successfully: {result}")
+                return {
+                    "status": "email_sent",
+                    "message": "Weekly reminder sent successfully",
+                    "email_result": result,
+                    "function_data": test_data
+                }
+            else:
+                error_msg = response.text
+                logger.error(f"❌ Error calling edge function: {response.status_code} - {error_msg}")
+                return {
+                    "status": "email_error",
+                    "message": f"Error calling edge function: {response.status_code}",
+                    "error": error_msg,
+                    "function_data": test_data
+                }
+                
+        except Exception as e:
+            logger.error(f"❌ Exception calling edge function: {e}")
+            return {
+                "status": "exception_error",
+                "message": f"Exception calling edge function: {str(e)}",
+                "function_data": test_data
+            }
+        
+    except Exception as e:
+        logger.error(f"❌ Error en test_weekly_reminder: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/test-weekly-results")
+async def test_weekly_results():
+    """
+    Endpoint de prueba para simular el envío de resultados semanales
+    usando datos de la semana 9 con tu email
+    """
+    try:
+        # Datos de prueba para la semana 9
+        test_data = {
+            "to": "gerry_petrucci_developer@outlook.com",
+            "userName": "Gerry Petrucci", 
+            "currentWeek": 9,
+            "userPicks": [
+                {
+                    "entry_name": "Gerry's Main Entry",
+                    "team_picked": "Kansas City Chiefs",
+                    "result": "W",
+                    "score": "Chiefs 28 - Broncos 14"
+                },
+                {
+                    "entry_name": "Gerry's Backup",
+                    "team_picked": "Buffalo Bills",
+                    "result": "L", 
+                    "score": "Bills 17 - Colts 20"
+                },
+                {
+                    "entry_name": "Test Entry #3",
+                    "team_picked": "Detroit Lions",
+                    "result": "W",
+                    "score": "Lions 35 - Jaguars 10"
+                }
+            ],
+            "weekStats": {
+                "total_picks": 45,
+                "correct_picks": 28,
+                "wins": 28,
+                "ties": 2,
+                "losses": 15
+            },
+            "competitionStats": {
+                "alive": 8,
+                "last_chance": 12,
+                "eliminated": 25
+            }
+        }
+        
+        logger.info("📊 Testing Weekly Results with data:")
+        logger.info(f"   Email: {test_data['to']}")
+        logger.info(f"   Week: {test_data['currentWeek']}")
+        logger.info(f"   User picks: {len(test_data['userPicks'])}")
+        logger.info(f"   Win rate: {(test_data['weekStats']['correct_picks'] / test_data['weekStats']['total_picks'] * 100):.1f}%")
+        
+        # Llamar a la edge function real de Supabase
+        SUPABASE_URL = os.getenv("VITE_SUPABASE_URL")
+        # Prefer server-only key (no VITE_ prefix for security)
+        SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("VITE_SUPABASE_SERVICE_ROLE_KEY")
+        SUPABASE_ANON_KEY = os.getenv("VITE_SUPABASE_ANON_KEY")
+        
+        # Usar service key si está disponible, sino usar anon key para probar
+        auth_key = SUPABASE_SERVICE_KEY if SUPABASE_SERVICE_KEY else SUPABASE_ANON_KEY
+        
+        if not SUPABASE_URL or not auth_key:
+            return {
+                "status": "error",
+                "message": "Supabase credentials not configured",
+                "function_data": test_data,
+                "note": "Configura VITE_SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY para enviar emails"
+            }
+        
+        # Llamar a la edge function
+        edge_function_url = f"{SUPABASE_URL}/functions/v1/send-weekly-results"
+        headers = {
+            "Content-Type": "application/json", 
+            "Authorization": f"Bearer {auth_key}",
+            "apikey": auth_key
+        }
+        
+        logger.info(f"🔑 Using auth key: {'service_role' if SUPABASE_SERVICE_KEY else 'anon'}")
+        logger.info(f"🌐 Calling: {edge_function_url}")
+        
+        try:
+            response = requests.post(edge_function_url, json=test_data, headers=headers, timeout=30)
+            
+            if response.status_code == 200:
+                result = response.json()
+                logger.info(f"✅ Email sent successfully: {result}")
+                return {
+                    "status": "email_sent",
+                    "message": "Weekly results sent successfully",
+                    "email_result": result,
+                    "function_data": test_data
+                }
+            else:
+                error_msg = response.text
+                logger.error(f"❌ Error calling edge function: {response.status_code} - {error_msg}")
+                return {
+                    "status": "email_error",
+                    "message": f"Error calling edge function: {response.status_code}",
+                    "error": error_msg,
+                    "function_data": test_data
+                }
+                
+        except Exception as e:
+            logger.error(f"❌ Exception calling edge function: {e}")
+            return {
+                "status": "exception_error",
+                "message": f"Exception calling edge function: {str(e)}",
+                "function_data": test_data
+            }
+        
+    except Exception as e:
+        logger.error(f"❌ Error en test_weekly_results: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/test-auto-reminder-all")
+async def test_auto_reminder_all():
+    """
+    Endpoint de prueba para simular el envío automático de recordatorios 
+    a TODOS los usuarios (Jueves al mediodía)
+    """
+    try:
+        # Datos para modo automático - todos los usuarios
+        test_data = {
+            "mode": "auto_all_users",
+            "force_week": 9  # Forzar semana 9 para testing
+        }
+        
+        logger.info("🔔 Testing Auto Reminder - ALL USERS")
+        logger.info(f"   Mode: {test_data['mode']}")
+        logger.info(f"   Force week: {test_data.get('force_week', 'current')}")
+        
+        # Llamar a la edge function
+        SUPABASE_URL = os.getenv("VITE_SUPABASE_URL")
+        SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("VITE_SUPABASE_SERVICE_ROLE_KEY")
+        
+        if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+            return {
+                "status": "error",
+                "message": "Supabase credentials not configured"
+            }
+        
+        edge_function_url = f"{SUPABASE_URL}/functions/v1/send-weekly-reminders"
+        headers = {
+            "Content-Type": "application/json", 
+            "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+            "apikey": SUPABASE_SERVICE_KEY
+        }
+        
+        logger.info(f"🌐 Calling: {edge_function_url}")
+        
+        response = requests.post(edge_function_url, json=test_data, headers=headers, timeout=60)
+        
+        if response.status_code == 200:
+            result = response.json()
+            logger.info(f"✅ Auto reminder sent: {result}")
+            return {
+                "status": "success",
+                "message": "Auto reminder test completed",
+                "result": result
+            }
+        else:
+            error_msg = response.text
+            logger.error(f"❌ Error calling edge function: {response.status_code} - {error_msg}")
+            return {
+                "status": "error",
+                "message": f"Error calling edge function: {response.status_code}",
+                "error": error_msg
+            }
+                
+    except Exception as e:
+        logger.error(f"❌ Error en test_auto_reminder_all: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/test-auto-reminder-no-picks")
+async def test_auto_reminder_no_picks():
+    """
+    Endpoint de prueba para simular el envío automático de recordatorios 
+    solo a usuarios SIN PICKS (Lunes al mediodía)
+    """
+    try:
+        # Datos para modo automático - solo usuarios sin picks
+        test_data = {
+            "mode": "auto_no_picks_only",
+            "force_week": 9  # Forzar semana 9 para testing
+        }
+        
+        logger.info("🔔 Testing Auto Reminder - NO PICKS ONLY")
+        logger.info(f"   Mode: {test_data['mode']}")
+        logger.info(f"   Force week: {test_data.get('force_week', 'current')}")
+        
+        # Llamar a la edge function
+        SUPABASE_URL = os.getenv("VITE_SUPABASE_URL")
+        SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("VITE_SUPABASE_SERVICE_ROLE_KEY")
+        
+        if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+            return {
+                "status": "error",
+                "message": "Supabase credentials not configured"
+            }
+        
+        edge_function_url = f"{SUPABASE_URL}/functions/v1/send-weekly-reminders"
+        headers = {
+            "Content-Type": "application/json", 
+            "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+            "apikey": SUPABASE_SERVICE_KEY
+        }
+        
+        logger.info(f"🌐 Calling: {edge_function_url}")
+        
+        response = requests.post(edge_function_url, json=test_data, headers=headers, timeout=60)
+        
+        if response.status_code == 200:
+            result = response.json()
+            logger.info(f"✅ Auto reminder sent: {result}")
+            return {
+                "status": "success", 
+                "message": "Auto reminder test completed",
+                "result": result
+            }
+        else:
+            error_msg = response.text
+            logger.error(f"❌ Error calling edge function: {response.status_code} - {error_msg}")
+            return {
+                "status": "error",
+                "message": f"Error calling edge function: {response.status_code}",
+                "error": error_msg
+            }
+                
+    except Exception as e:
+        logger.error(f"❌ Error en test_auto_reminder_no_picks: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/test-auto-results")
+async def test_auto_results():
+    """
+    Endpoint de prueba para simular el envío automático de resultados 
+    a TODOS los usuarios (Martes al mediodía)
+    """
+    try:
+        # Datos para modo automático - resultados
+        test_data = {
+            "mode": "auto_all_users",
+            "force_week": 9  # Forzar semana 9 para testing
+        }
+        
+        logger.info("📊 Testing Auto Results - ALL USERS")
+        logger.info(f"   Mode: {test_data['mode']}")
+        logger.info(f"   Force week: {test_data.get('force_week', 'current')}")
+        
+        # Llamar a la edge function
+        SUPABASE_URL = os.getenv("VITE_SUPABASE_URL")
+        SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("VITE_SUPABASE_SERVICE_ROLE_KEY")
+        
+        if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+            return {
+                "status": "error",
+                "message": "Supabase credentials not configured"
+            }
+        
+        edge_function_url = f"{SUPABASE_URL}/functions/v1/send-weekly-results"
+        headers = {
+            "Content-Type": "application/json", 
+            "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+            "apikey": SUPABASE_SERVICE_KEY
+        }
+        
+        logger.info(f"🌐 Calling: {edge_function_url}")
+        
+        response = requests.post(edge_function_url, json=test_data, headers=headers, timeout=60)
+        
+        if response.status_code == 200:
+            result = response.json()
+            logger.info(f"✅ Auto results sent: {result}")
+            return {
+                "status": "success",
+                "message": "Auto results test completed",
+                "result": result
+            }
+        else:
+            error_msg = response.text
+            logger.error(f"❌ Error calling edge function: {response.status_code} - {error_msg}")
+            return {
+                "status": "error",
+                "message": f"Error calling edge function: {response.status_code}",
+                "error": error_msg
+            }
+                
+    except Exception as e:
+        logger.error(f"❌ Error en test_auto_results: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Para Vercel, el objeto app es el handler
 # Vercel automáticamente detecta FastAPI y lo ejecuta

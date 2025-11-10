@@ -12,6 +12,12 @@ on:
     - cron: '45 11 * * 1'
     # Domingos 5:00 AM CDMX (11:00 UTC domingo) - Update live scores
     - cron: '0 11 * * 0'
+    # Lunes 12:00 PM CDMX (18:00 UTC) - Recordatorio usuarios sin picks
+    - cron: '0 18 * * 1'
+    # Martes 12:00 PM CDMX (18:00 UTC) - Enviar resultados semanales
+    - cron: '0 18 * * 2'
+    # Jueves 12:00 PM CDMX (18:00 UTC) - Recordatorio a todos los usuarios
+    - cron: '0 18 * * 4'
 
   # Permite ejecutar manualmente
   workflow_dispatch:
@@ -30,6 +36,9 @@ on:
           - auto-assign-picks
           - save-weekly-records
           - update-live-scores
+          - send-monday-reminders
+          - send-tuesday-results
+          - send-thursday-reminders
       force_execution:
         description: 'Forzar ejecución auto-assign (ignora validación de horario)'
         required: false
@@ -579,3 +588,129 @@ jobs:
           echo "📅 Semana NFL: ${{ steps.get-sunday-schedule.outputs.current_week }}"
           echo ""
           echo "🔗 Detalles: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+  send-monday-reminders:
+    name: Recordatorio Lunes - Usuarios Sin Picks
+    runs-on: ubuntu-latest
+    if: |
+      github.event.schedule == '0 18 * * 1' || 
+      (github.event_name == 'workflow_dispatch' && 
+       github.event.inputs.task == 'send-monday-reminders')
+    
+    steps:
+      - name: 📧 Enviar recordatorios a usuarios sin picks
+        run: |
+          echo "📧 RECORDATORIO LUNES - USUARIOS SIN PICKS"
+          echo "📅 Fecha: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          echo "🎯 Modo: auto_no_picks_only"
+          
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            "${{ secrets.SUPABASE_URL }}/functions/v1/send-weekly-reminders" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -d '{"mode":"auto_no_picks_only"}' \
+            --max-time 300)
+          
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n-1)
+          
+          echo "📡 HTTP Status: $http_code"
+          echo "📄 Response: $body"
+          
+          if [ "$http_code" = "200" ]; then
+            total_processed=$(echo "$body" | jq -r '.total_processed // 0' 2>/dev/null || echo "0")
+            successful=$(echo "$body" | jq -r '.successful // 0' 2>/dev/null || echo "0")
+            failed=$(echo "$body" | jq -r '.failed // 0' 2>/dev/null || echo "0")
+            
+            echo "✅ Recordatorios enviados exitosamente"
+            echo "📊 Total procesados: $total_processed"
+            echo "✅ Exitosos: $successful"
+            echo "❌ Fallidos: $failed"
+          else
+            echo "❌ Error enviando recordatorios"
+            exit 1
+          fi
+
+  send-tuesday-results:
+    name: Resultados Martes - Envío Semanal
+    runs-on: ubuntu-latest
+    if: |
+      github.event.schedule == '0 18 * * 2' || 
+      (github.event_name == 'workflow_dispatch' && 
+       github.event.inputs.task == 'send-tuesday-results')
+    
+    steps:
+      - name: 📊 Enviar resultados semanales
+        run: |
+          echo "📊 RESULTADOS SEMANALES - MARTES"
+          echo "📅 Fecha: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          echo "🎯 Modo: auto_all_users"
+          
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            "${{ secrets.SUPABASE_URL }}/functions/v1/send-weekly-results" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -d '{"mode":"auto_all_users"}' \
+            --max-time 300)
+          
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n-1)
+          
+          echo "📡 HTTP Status: $http_code"
+          echo "📄 Response: $body"
+          
+          if [ "$http_code" = "200" ]; then
+            total_processed=$(echo "$body" | jq -r '.total_processed // 0' 2>/dev/null || echo "0")
+            successful=$(echo "$body" | jq -r '.successful // 0' 2>/dev/null || echo "0")
+            failed=$(echo "$body" | jq -r '.failed // 0' 2>/dev/null || echo "0")
+            
+            echo "✅ Resultados enviados exitosamente"
+            echo "📊 Total procesados: $total_processed"
+            echo "✅ Exitosos: $successful"
+            echo "❌ Fallidos: $failed"
+          else
+            echo "❌ Error enviando resultados"
+            exit 1
+          fi
+
+  send-thursday-reminders:
+    name: Recordatorio Jueves - Todos los Usuarios
+    runs-on: ubuntu-latest
+    if: |
+      github.event.schedule == '0 18 * * 4' || 
+      (github.event_name == 'workflow_dispatch' && 
+       github.event.inputs.task == 'send-thursday-reminders')
+    
+    steps:
+      - name: 📧 Enviar recordatorios a todos los usuarios
+        run: |
+          echo "📧 RECORDATORIO JUEVES - TODOS LOS USUARIOS"
+          echo "📅 Fecha: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          echo "🎯 Modo: auto_all_users"
+          
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            "${{ secrets.SUPABASE_URL }}/functions/v1/send-weekly-reminders" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -d '{"mode":"auto_all_users"}' \
+            --max-time 300)
+          
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n-1)
+          
+          echo "📡 HTTP Status: $http_code"
+          echo "📄 Response: $body"
+          
+          if [ "$http_code" = "200" ]; then
+            total_processed=$(echo "$body" | jq -r '.total_processed // 0' 2>/dev/null || echo "0")
+            successful=$(echo "$body" | jq -r '.successful // 0' 2>/dev/null || echo "0")
+            failed=$(echo "$body" | jq -r '.failed // 0' 2>/dev/null || echo "0")
+            
+            echo "✅ Recordatorios enviados exitosamente"
+            echo "📊 Total procesados: $total_processed"
+            echo "✅ Exitosos: $successful"
+            echo "❌ Fallidos: $failed"
+          else
+            echo "❌ Error enviando recordatorios"
+            exit 1
+          fi
