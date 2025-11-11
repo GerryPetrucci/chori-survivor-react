@@ -222,10 +222,9 @@ jobs:
           echo "🔄 Guardando records semanales..."
           
           year="${{ steps.season-info.outputs.year }}"
-          week_to_save="${{ steps.season-info.outputs.week_to_save }}"
           
           response=$(curl -L -s -w "\n%{http_code}" -X POST \
-            "https://${{ secrets.VERCEL_DOMAIN }}/api/save-weekly-team-records?year=$year&week=$week_to_save" \
+            "https://${{ secrets.VERCEL_DOMAIN }}/api/save-weekly-team-records?year=$year" \
             --max-time 45)
           
           http_code=$(echo "$response" | tail -n1)
@@ -640,17 +639,43 @@ jobs:
        github.event.inputs.task == 'send-tuesday-results')
     
     steps:
+      - name: 📊 Obtener semana actual
+        id: get-week
+        run: |
+          echo "🔍 Obteniendo información de la temporada actual..."
+          
+          season_info=$(curl -L -s "https://${{ secrets.VERCEL_DOMAIN }}/api/current-week" --max-time 30)
+          
+          if [ $? -eq 0 ]; then
+            current_week=$(echo "$season_info" | jq -r '.week // 1' 2>/dev/null || echo "1")
+            
+            # Calcular semana anterior para enviar resultados
+            previous_week=$((current_week - 1))
+            if [ $previous_week -lt 1 ]; then
+              previous_week=1
+            fi
+            
+            echo "week_to_send=$previous_week" >> $GITHUB_OUTPUT
+            
+            echo "📅 Semana actual: $current_week"
+            echo "📊 Semana a enviar resultados: $previous_week"
+          else
+            echo "❌ Error obteniendo información de temporada"
+            echo "week_to_send=1" >> $GITHUB_OUTPUT
+          fi
+      
       - name: 📊 Enviar resultados semanales
         run: |
           echo "📊 RESULTADOS SEMANALES - MARTES"
           echo "📅 Fecha: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
           echo "🎯 Modo: auto_all_users"
+          echo "📅 Semana: ${{ steps.get-week.outputs.week_to_send }}"
           
           response=$(curl -L -s -w "\n%{http_code}" -X POST \
             "${{ secrets.SUPABASE_URL }}/functions/v1/send-weekly-results" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
-            -d '{"mode":"auto_all_users"}' \
+            -d '{"mode":"auto_all_users","week":${{ steps.get-week.outputs.week_to_send }}}' \
             --max-time 300)
           
           http_code=$(echo "$response" | tail -n1)

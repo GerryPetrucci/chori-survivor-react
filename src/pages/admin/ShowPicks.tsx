@@ -458,10 +458,15 @@ export default function ShowPicks() {
                         </Typography>
                       ) : (
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-                          <img
+                          <Box
+                            component="img"
                             src={getTeamLogo(pick.logo_url)}
                             alt={pick.team_name}
-                            style={{ width: 24, height: 24, borderRadius: '50%' }}
+                            sx={{
+                              width: { xs: 24, sm: 28 },
+                              height: { xs: 24, sm: 28 },
+                              objectFit: 'contain'
+                            }}
                           />
                           <Typography variant="body2" sx={{ display: { xs: 'none', md: 'inline' }, fontSize: '0.875rem' }}>
                             {pick.team_abbreviation}

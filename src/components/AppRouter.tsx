@@ -103,12 +103,10 @@ export default function AppRouter() {
           </Route>
         </Route>
         
-        {/* Catch all route */}
+        {/* Catch all route - redirect to home, which will handle the user type check */}
         <Route 
           path="*" 
-          element={
-            <Navigate to={user?.user_type === 'admin' ? '/admin' : '/dashboard'} replace />
-          } 
+          element={<Navigate to="/" replace />} 
         />
       </Routes>
     </Router>

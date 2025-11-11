@@ -24,44 +24,45 @@ interface CompetitionStats {
 
 interface WeeklyResultsRequest {
   mode?: 'auto_all_users';
-  force_week?: number;
+  week?: number;  // Semana específica para enviar resultados (usado por el workflow automático)
+  force_week?: number;  // Deprecated: usar 'week' en su lugar
   preview?: boolean;
 }
 
-// NFL Team logos mapping usando logos locales
+// NFL Team logos mapping usando dominio personalizado
 const NFL_LOGOS: { [key: string]: string } = {
-  'Cardinals': 'https://chori-survivor-react.vercel.app/assets/logos/cardinals_logo.png',
-  'Falcons': 'https://chori-survivor-react.vercel.app/assets/logos/falcons_logo.png',
-  'Ravens': 'https://chori-survivor-react.vercel.app/assets/logos/ravens_logo.png',
-  'Bills': 'https://chori-survivor-react.vercel.app/assets/logos/bills_logo.png',
-  'Panthers': 'https://chori-survivor-react.vercel.app/assets/logos/panthers_logo.png',
-  'Bears': 'https://chori-survivor-react.vercel.app/assets/logos/bears_logo.png',
-  'Bengals': 'https://chori-survivor-react.vercel.app/assets/logos/bengals_logo.png',
-  'Browns': 'https://chori-survivor-react.vercel.app/assets/logos/browns_logo.png',
-  'Cowboys': 'https://chori-survivor-react.vercel.app/assets/logos/cowboys_logo.png',
-  'Broncos': 'https://chori-survivor-react.vercel.app/assets/logos/broncos_logo.png',
-  'Lions': 'https://chori-survivor-react.vercel.app/assets/logos/lions_logo.png',
-  'Packers': 'https://chori-survivor-react.vercel.app/assets/logos/packers_logo.png',
-  'Texans': 'https://chori-survivor-react.vercel.app/assets/logos/texans_logo.png',
-  'Colts': 'https://chori-survivor-react.vercel.app/assets/logos/colts_logo.png',
-  'Jaguars': 'https://chori-survivor-react.vercel.app/assets/logos/jaguars_logo.png',
-  'Chiefs': 'https://chori-survivor-react.vercel.app/assets/logos/chiefs_logo.png',
-  'Raiders': 'https://chori-survivor-react.vercel.app/assets/logos/raiders_logo.png',
-  'Chargers': 'https://chori-survivor-react.vercel.app/assets/logos/chargers_logo.png',
-  'Rams': 'https://chori-survivor-react.vercel.app/assets/logos/rams_logo.png',
-  'Dolphins': 'https://chori-survivor-react.vercel.app/assets/logos/dolphins_logo.png',
-  'Vikings': 'https://chori-survivor-react.vercel.app/assets/logos/vikings_logo.png',
-  'Patriots': 'https://chori-survivor-react.vercel.app/assets/logos/patriots_logo.png',
-  'Saints': 'https://chori-survivor-react.vercel.app/assets/logos/saints_logo.png',
-  'Giants': 'https://chori-survivor-react.vercel.app/assets/logos/giants_logo.png',
-  'Jets': 'https://chori-survivor-react.vercel.app/assets/logos/jets_logo.png',
-  'Eagles': 'https://chori-survivor-react.vercel.app/assets/logos/eagles_logo.png',
-  'Steelers': 'https://chori-survivor-react.vercel.app/assets/logos/steelers_logo.png',
-  '49ers': 'https://chori-survivor-react.vercel.app/assets/logos/49ers_logo.png',
-  'Seahawks': 'https://chori-survivor-react.vercel.app/assets/logos/seahawks_logo.png',
-  'Buccaneers': 'https://chori-survivor-react.vercel.app/assets/logos/buccaneers_logo.png',
-  'Titans': 'https://chori-survivor-react.vercel.app/assets/logos/titans_logo.png',
-  'Commanders': 'https://chori-survivor-react.vercel.app/assets/logos/commanders_logo.png'
+  'Cardinals': 'https://chori-survivor.com/assets/logos/cardinals_logo.png',
+  'Falcons': 'https://chori-survivor.com/assets/logos/falcons_logo.png',
+  'Ravens': 'https://chori-survivor.com/assets/logos/ravens_logo.png',
+  'Bills': 'https://chori-survivor.com/assets/logos/bills_logo.png',
+  'Panthers': 'https://chori-survivor.com/assets/logos/panthers_logo.png',
+  'Bears': 'https://chori-survivor.com/assets/logos/bears_logo.png',
+  'Bengals': 'https://chori-survivor.com/assets/logos/bengals_logo.png',
+  'Browns': 'https://chori-survivor.com/assets/logos/browns_logo.png',
+  'Cowboys': 'https://chori-survivor.com/assets/logos/cowboys_logo.png',
+  'Broncos': 'https://chori-survivor.com/assets/logos/broncos_logo.png',
+  'Lions': 'https://chori-survivor.com/assets/logos/lions_logo.png',
+  'Packers': 'https://chori-survivor.com/assets/logos/packers_logo.png',
+  'Texans': 'https://chori-survivor.com/assets/logos/texans_logo.png',
+  'Colts': 'https://chori-survivor.com/assets/logos/colts_logo.png',
+  'Jaguars': 'https://chori-survivor.com/assets/logos/jaguars_logo.png',
+  'Chiefs': 'https://chori-survivor.com/assets/logos/chiefs_logo.png',
+  'Raiders': 'https://chori-survivor.com/assets/logos/raiders_logo.png',
+  'Chargers': 'https://chori-survivor.com/assets/logos/chargers_logo.png',
+  'Rams': 'https://chori-survivor.com/assets/logos/rams_logo.png',
+  'Dolphins': 'https://chori-survivor.com/assets/logos/dolphins_logo.png',
+  'Vikings': 'https://chori-survivor.com/assets/logos/vikings_logo.png',
+  'Patriots': 'https://chori-survivor.com/assets/logos/patriots_logo.png',
+  'Saints': 'https://chori-survivor.com/assets/logos/saints_logo.png',
+  'Giants': 'https://chori-survivor.com/assets/logos/giants_logo.png',
+  'Jets': 'https://chori-survivor.com/assets/logos/jets_logo.png',
+  'Eagles': 'https://chori-survivor.com/assets/logos/eagles_logo.png',
+  'Steelers': 'https://chori-survivor.com/assets/logos/steelers_logo.png',
+  '49ers': 'https://chori-survivor.com/assets/logos/49ers_logo.png',
+  'Seahawks': 'https://chori-survivor.com/assets/logos/seahawks_logo.png',
+  'Buccaneers': 'https://chori-survivor.com/assets/logos/buccaneers_logo.png',
+  'Titans': 'https://chori-survivor.com/assets/logos/titans_logo.png',
+  'Commanders': 'https://chori-survivor.com/assets/logos/commanders_logo.png'
 };
 
 function getTeamLogo(teamName: string): string {
@@ -522,7 +523,7 @@ function generateWeeklyResultsHTML(data: WeeklyResultsData): string {
                 <table width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0;">
                   <tr>
                     <td align="center">
-                      <a href="https://chori-survivor-react.vercel.app/ranking" style="display:inline-block; background-color:#764ba2; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:#fff; padding:15px 30px; text-decoration:none; border-radius:8px; font-weight:bold; font-size:16px; border:none; box-shadow: 0 4px 15px rgba(118, 75, 162, 0.3);">
+                      <a href="https://chori-survivor.com/ranking" style="display:inline-block; background-color:#764ba2; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:#fff; padding:15px 30px; text-decoration:none; border-radius:8px; font-weight:bold; font-size:16px; border:none; box-shadow: 0 4px 15px rgba(118, 75, 162, 0.3);">
                         📊 Ver Ranking Completo
                       </a>
                     </td>
@@ -578,10 +579,29 @@ serve(async (req: Request) => {
       );
     }
 
+    // Determinar qué semana usar para los resultados
+    // Prioridad: week > force_week > semana actual
+    let weekToSend: number;
+    
+    if (requestData.week !== undefined && requestData.week !== null) {
+      // Si viene 'week' del workflow automático (martes), usar ese valor
+      weekToSend = requestData.week;
+      console.log(`Using week from request: ${weekToSend}`);
+    } else if (requestData.force_week !== undefined && requestData.force_week !== null) {
+      // Deprecated: mantener compatibilidad con force_week
+      weekToSend = requestData.force_week;
+      console.log(`Using force_week (deprecated): ${weekToSend}`);
+    } else {
+      // Por defecto, usar la semana actual
+      weekToSend = await getCurrentNFLWeek(supabase);
+      console.log(`Using current NFL week: ${weekToSend}`);
+    }
+
+    console.log(`📊 Sending weekly results for week ${weekToSend}`);
+
     // Modo automático - obtener datos de la BD
-    const currentWeek = requestData.force_week || await getCurrentNFLWeek(supabase);
     const users = await getUsersForResults(supabase);
-    const weekStats = await getWeekStats(supabase, currentWeek);
+    const weekStats = await getWeekStats(supabase, weekToSend);
     const competitionStats = await getCompetitionStats(supabase);
 
     if (users.length === 0) {
@@ -590,7 +610,7 @@ serve(async (req: Request) => {
           success: true, 
           message: 'No users found for results',
           mode,
-          currentWeek 
+          week: weekToSend
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -604,7 +624,7 @@ serve(async (req: Request) => {
       
       for (const user of users) {
         try {
-          const userPicks = await getUserPicksForWeek(supabase, user.id, currentWeek);
+          const userPicks = await getUserPicksForWeek(supabase, user.id, weekToSend);
           
           previewData.push({
             user: {
@@ -613,9 +633,9 @@ serve(async (req: Request) => {
               username: user.username
             },
             emailData: {
-              subject: `📊 Resultados de la Semana ${currentWeek}`,
+              subject: `📊 Resultados de la Semana ${weekToSend}`,
               userName: user.username || user.email || 'Usuario',
-              currentWeek,
+              currentWeek: weekToSend,
               userPicks,
               weekStats,
               competitionStats
@@ -640,7 +660,7 @@ serve(async (req: Request) => {
         JSON.stringify({ 
           success: true,
           mode,
-          currentWeek,
+          week: weekToSend,
           preview: true,
           total_users_found: users.length,
           weekStats,
@@ -653,16 +673,16 @@ serve(async (req: Request) => {
 
     const results = [];
     const from = 'Chori Survivor <noreply@chori-survivor.com>';
-    const subject = `📊 Resultados de la Semana ${currentWeek}`;
+    const subject = `📊 Resultados de la Semana ${weekToSend}`;
 
     // Enviar emails a cada usuario
     for (const user of users) {
       try {
-        const userPicks = await getUserPicksForWeek(supabase, user.id, currentWeek);
+        const userPicks = await getUserPicksForWeek(supabase, user.id, weekToSend);
 
         const html = generateWeeklyResultsHTML({
           userName: user.username || user.email || 'Usuario',
-          currentWeek,
+          currentWeek: weekToSend,
           userPicks,
           weekStats,
           competitionStats
@@ -728,7 +748,7 @@ serve(async (req: Request) => {
         success: true, 
         message: `Weekly results processed for ${results.length} users`,
         mode,
-        currentWeek,
+        week: weekToSend,
         weekStats,
         competitionStats,
         results: results.slice(0, 10), // Limitar a 10 resultados para evitar respuestas muy grandes
