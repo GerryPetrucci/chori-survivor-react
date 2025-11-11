@@ -730,8 +730,8 @@ serve(async (req: Request) => {
           });
         }
 
-        // Pequeña pausa entre emails para no sobrecargar Resend
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Pausa entre emails para respetar rate limit de Resend (2 requests/segundo)
+        await new Promise(resolve => setTimeout(resolve, 600));
 
       } catch (userError: any) {
         console.error(`Error processing user ${user.email}:`, userError);
