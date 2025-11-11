@@ -197,8 +197,8 @@ jobs:
           season_info=$(curl -L -s "https://${{ secrets.VERCEL_DOMAIN }}/api/current-week" --max-time 30)
           
           if [ $? -eq 0 ]; then
-            year=$(echo "$season_info" | jq -r '.year // 2024' 2>/dev/null || echo "2024")
-            week=$(echo "$season_info" | jq -r '.week // 1' 2>/dev/null || echo "1")
+            year=$(echo "$season_info" | jq -r '.season_year // 2024' 2>/dev/null || echo "2024")
+            week=$(echo "$season_info" | jq -r '.current_week // 1' 2>/dev/null || echo "1")
             
             # Calcular semana anterior para guardar records
             week_to_save=$((week - 1))
