@@ -59,7 +59,7 @@ jobs:
         run: |
           echo "🔄 Actualizando semana actual NFL..."
           
-          response=$(curl -s -w "\n%{http_code}" -X POST \
+          response=$(curl -L -s -w "\n%{http_code}" -X POST \
             "https://${{ secrets.VERCEL_DOMAIN }}/api/set-current-week" \
             --max-time 30)
           
@@ -93,7 +93,7 @@ jobs:
         run: |
           echo "🔄 Ejecutando actualización diaria de partidos..."
           
-          response=$(curl -s -w "\n%{http_code}" -X POST \
+          response=$(curl -L -s -w "\n%{http_code}" -X POST \
             "https://${{ secrets.VERCEL_DOMAIN }}/api/update-matches" \
             --max-time 60)
           
@@ -127,7 +127,7 @@ jobs:
           echo "🔄 Ejecutando auto-update de picks..."
           echo "ℹ️  Este endpoint solo actualiza picks de partidos completados"
           
-          response=$(curl -s -w "\n%{http_code}" -X POST \
+          response=$(curl -L -s -w "\n%{http_code}" -X POST \
             "https://${{ secrets.VERCEL_DOMAIN }}/api/auto-update-picks" \
             --max-time 60)
           
@@ -164,7 +164,7 @@ jobs:
         run: |
           echo "🔄 Actualizando momios semanales..."
           
-          response=$(curl -s -w "\n%{http_code}" -X POST \
+          response=$(curl -L -s -w "\n%{http_code}" -X POST \
             "https://${{ secrets.VERCEL_DOMAIN }}/api/update-weekly-odds-auto" \
             --max-time 45)
           
@@ -194,7 +194,7 @@ jobs:
         run: |
           echo "🔍 Obteniendo información de la temporada actual..."
           
-          season_info=$(curl -s "https://${{ secrets.VERCEL_DOMAIN }}/api/current-week" --max-time 30)
+          season_info=$(curl -L -s "https://${{ secrets.VERCEL_DOMAIN }}/api/current-week" --max-time 30)
           
           if [ $? -eq 0 ]; then
             year=$(echo "$season_info" | jq -r '.year // 2024' 2>/dev/null || echo "2024")
@@ -224,7 +224,7 @@ jobs:
           year="${{ steps.season-info.outputs.year }}"
           week_to_save="${{ steps.season-info.outputs.week_to_save }}"
           
-          response=$(curl -s -w "\n%{http_code}" -X POST \
+          response=$(curl -L -s -w "\n%{http_code}" -X POST \
             "https://${{ secrets.VERCEL_DOMAIN }}/api/save-weekly-team-records?year=$year&week=$week_to_save" \
             --max-time 45)
           
@@ -261,7 +261,7 @@ jobs:
         run: |
           echo "🔍 Consultando horario del último partido de la semana..."
           
-          response=$(curl -s -w "\n%{http_code}" -X GET \
+          response=$(curl -L -s -w "\n%{http_code}" -X GET \
             "https://${{ secrets.VERCEL_DOMAIN }}/api/schedule-weekly-auto-assign" \
             --max-time 30)
           
@@ -337,7 +337,7 @@ jobs:
           while [ $retry_count -lt $max_retries ] && [ "$success" = "false" ]; do
             echo "🔄 Intento $((retry_count + 1))/$max_retries..."
             
-            response=$(curl -s -w "\n%{http_code}" -X POST \
+            response=$(curl -L -s -w "\n%{http_code}" -X POST \
               "https://${{ secrets.VERCEL_DOMAIN }}/api/auto-assign-last-game-picks" \
               --max-time 60)
             
@@ -408,7 +408,7 @@ jobs:
         run: |
           echo "🔍 Consultando horarios de partidos del domingo..."
           
-          response=$(curl -s -w "\n%{http_code}" -X GET \
+          response=$(curl -L -s -w "\n%{http_code}" -X GET \
             "https://${{ secrets.VERCEL_DOMAIN }}/api/get-sunday-matches-schedule" \
             --max-time 30)
           
@@ -504,7 +504,7 @@ jobs:
             fi
             
             # Ejecutar actualización de scores
-            response=$(curl -s -w "\n%{http_code}" -X POST \
+            response=$(curl -L -s -w "\n%{http_code}" -X POST \
               "https://${{ secrets.VERCEL_DOMAIN }}/api/update-live-scores" \
               --max-time 30)
             
@@ -558,7 +558,7 @@ jobs:
         run: |
           echo "🔄 Marcando todos los partidos del domingo como completados..."
           
-          response=$(curl -s -w "\n%{http_code}" -X POST \
+          response=$(curl -L -s -w "\n%{http_code}" -X POST \
             "https://${{ secrets.VERCEL_DOMAIN }}/api/complete-sunday-matches" \
             --max-time 30)
           
@@ -604,7 +604,7 @@ jobs:
           echo "📅 Fecha: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
           echo "🎯 Modo: auto_no_picks_only"
           
-          response=$(curl -s -w "\n%{http_code}" -X POST \
+          response=$(curl -L -s -w "\n%{http_code}" -X POST \
             "${{ secrets.SUPABASE_URL }}/functions/v1/send-weekly-reminders" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
@@ -646,7 +646,7 @@ jobs:
           echo "📅 Fecha: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
           echo "🎯 Modo: auto_all_users"
           
-          response=$(curl -s -w "\n%{http_code}" -X POST \
+          response=$(curl -L -s -w "\n%{http_code}" -X POST \
             "${{ secrets.SUPABASE_URL }}/functions/v1/send-weekly-results" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
@@ -688,7 +688,7 @@ jobs:
           echo "📅 Fecha: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
           echo "🎯 Modo: auto_all_users"
           
-          response=$(curl -s -w "\n%{http_code}" -X POST \
+          response=$(curl -L -s -w "\n%{http_code}" -X POST \
             "${{ secrets.SUPABASE_URL }}/functions/v1/send-weekly-reminders" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
