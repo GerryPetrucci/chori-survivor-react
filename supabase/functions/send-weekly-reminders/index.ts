@@ -236,13 +236,12 @@ async function getUsersForReminder(supabase: any, mode: string, week: number) {
     console.log('Active season ID:', season.id);
     
     if (mode === 'auto_all_users') {
-      // Todos los usuarios con entradas activas
-      // Primero obtener todas las entradas activas
+      // TODOS los usuarios con al menos UNA entrada en la temporada (sin importar is_active)
+      // Esto permite enviar a usuarios con entradas eliminadas también
       const { data: entries, error: entriesError } = await supabase
         .from('entries')
         .select('user_id')
-        .eq('season_id', season.id)
-        .eq('is_active', true);
+        .eq('season_id', season.id);
       
       console.log('Entries found for auto_all_users:', entries?.length || 0);
       if (entriesError) console.error('Error getting entries:', entriesError);
@@ -267,12 +266,11 @@ async function getUsersForReminder(supabase: any, mode: string, week: number) {
     
     if (mode === 'auto_no_picks_only') {
       // Solo usuarios con entradas sin picks para la semana actual
-      // 1. Obtener todas las entradas activas de la temporada
+      // Buscar en TODAS las entradas (no solo activas)
       const { data: entries, error: entriesError } = await supabase
         .from('entries')
         .select('id, user_id, entry_name')
-        .eq('season_id', season.id)
-        .eq('is_active', true);
+        .eq('season_id', season.id);
       
       console.log('Entries found:', entries?.length || 0);
       if (entriesError) console.error('Error getting entries:', entriesError);
@@ -628,13 +626,19 @@ serve(async (req: Request) => {
       
       for (const user of users) {
         try {
-          const entries = await getUserEntriesStatus(supabase, user.id, currentWeek);
+          const allEntries = await getUserEntriesStatus(supabase, user.id, currentWeek);
           
-          // Para modo 'auto_no_picks_only', solo incluir usuarios con entradas sin picks
+          // Filtrar entradas según el modo
+          let entriesToShow = allEntries;
+          
           if (mode === 'auto_no_picks_only') {
-            const hasEntriesWithoutPicks = entries.some((e: any) => !e.has_pick);
-            if (!hasEntriesWithoutPicks) continue;
+            // Lunes: Solo mostrar entradas SIN picks
+            entriesToShow = allEntries.filter((e: any) => !e.has_pick);
+            
+            // Si no hay entradas sin picks, saltar este usuario
+            if (entriesToShow.length === 0) continue;
           }
+          // Si es 'auto_all_users': Jueves - mostrar TODAS las entradas (con y sin picks)
           
           previewData.push({
             user: {
@@ -647,14 +651,15 @@ serve(async (req: Request) => {
               userName: user.username || user.email || 'Usuario',
               currentWeek,
               deadline,
-              entries,
+              entries: entriesToShow,
               topMatches,
               byeTeams
             },
             stats: {
-              total_entries: entries.length,
-              entries_without_picks: entries.filter((e: any) => !e.has_pick).length,
-              entries_with_picks: entries.filter((e: any) => e.has_pick).length
+              total_entries: allEntries.length,
+              entries_shown: entriesToShow.length,
+              entries_without_picks: entriesToShow.filter((e: any) => !e.has_pick).length,
+              entries_with_picks: entriesToShow.filter((e: any) => e.has_pick).length
             }
           });
           
@@ -686,19 +691,25 @@ serve(async (req: Request) => {
     // Enviar emails a cada usuario
     for (const user of users) {
       try {
-        const entries = await getUserEntriesStatus(supabase, user.id, currentWeek);
+        const allEntries = await getUserEntriesStatus(supabase, user.id, currentWeek);
         
-        // Para modo 'auto_no_picks_only', solo incluir usuarios con entradas sin picks
+        // Filtrar entradas según el modo
+        let entriesToShow = allEntries;
+        
         if (mode === 'auto_no_picks_only') {
-          const hasEntriesWithoutPicks = entries.some((e: any) => !e.has_pick);
-          if (!hasEntriesWithoutPicks) continue;
+          // Lunes: Solo mostrar entradas SIN picks
+          entriesToShow = allEntries.filter((e: any) => !e.has_pick);
+          
+          // Si no hay entradas sin picks, saltar este usuario
+          if (entriesToShow.length === 0) continue;
         }
+        // Si es 'auto_all_users': Jueves - mostrar TODAS las entradas (con y sin picks)
 
         const html = generateWeeklyReminderHTML({
           userName: user.username || user.email || 'Usuario',
           currentWeek,
           deadline,
-          entries,
+          entries: entriesToShow,
           topMatches,
           byeTeams
         });
@@ -733,8 +744,8 @@ serve(async (req: Request) => {
             user: user.email, 
             status: 'sent', 
             id: result.id,
-            entries_count: entries.length,
-            entries_without_picks: entries.filter((e: any) => !e.has_pick).length
+            entries_count: entriesToShow.length,
+            entries_without_picks: entriesToShow.filter((e: any) => !e.has_pick).length
           });
         } else {
           console.error(`Failed to send to ${user.email}:`, result);
