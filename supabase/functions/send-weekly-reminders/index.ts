@@ -5,6 +5,7 @@ interface EntryStatus {
   entry_name: string;
   has_pick: boolean;
   team_picked?: string;
+  status: 'alive' | 'last_chance' | 'eliminated';
 }
 
 interface MatchOdds {
@@ -22,40 +23,40 @@ interface WeeklyReminderRequest {
   preview?: boolean; // Opcional para ver datos sin enviar emails
 }
 
-// NFL Team logos mapping usando logos locales
+// NFL Team logos mapping usando dominio personalizado
 const NFL_LOGOS: { [key: string]: string } = {
-  'Cardinals': 'https://chori-survivor-react.vercel.app/assets/logos/cardinals_logo.png',
-  'Falcons': 'https://chori-survivor-react.vercel.app/assets/logos/falcons_logo.png',
-  'Ravens': 'https://chori-survivor-react.vercel.app/assets/logos/ravens_logo.png',
-  'Bills': 'https://chori-survivor-react.vercel.app/assets/logos/bills_logo.png',
-  'Panthers': 'https://chori-survivor-react.vercel.app/assets/logos/panthers_logo.png',
-  'Bears': 'https://chori-survivor-react.vercel.app/assets/logos/bears_logo.png',
-  'Bengals': 'https://chori-survivor-react.vercel.app/assets/logos/bengals_logo.png',
-  'Browns': 'https://chori-survivor-react.vercel.app/assets/logos/browns_logo.png',
-  'Cowboys': 'https://chori-survivor-react.vercel.app/assets/logos/cowboys_logo.png',
-  'Broncos': 'https://chori-survivor-react.vercel.app/assets/logos/broncos_logo.png',
-  'Lions': 'https://chori-survivor-react.vercel.app/assets/logos/lions_logo.png',
-  'Packers': 'https://chori-survivor-react.vercel.app/assets/logos/packers_logo.png',
-  'Texans': 'https://chori-survivor-react.vercel.app/assets/logos/texans_logo.png',
-  'Colts': 'https://chori-survivor-react.vercel.app/assets/logos/colts_logo.png',
-  'Jaguars': 'https://chori-survivor-react.vercel.app/assets/logos/jaguars_logo.png',
-  'Chiefs': 'https://chori-survivor-react.vercel.app/assets/logos/chiefs_logo.png',
-  'Raiders': 'https://chori-survivor-react.vercel.app/assets/logos/raiders_logo.png',
-  'Chargers': 'https://chori-survivor-react.vercel.app/assets/logos/chargers_logo.png',
-  'Rams': 'https://chori-survivor-react.vercel.app/assets/logos/rams_logo.png',
-  'Dolphins': 'https://chori-survivor-react.vercel.app/assets/logos/dolphins_logo.png',
-  'Vikings': 'https://chori-survivor-react.vercel.app/assets/logos/vikings_logo.png',
-  'Patriots': 'https://chori-survivor-react.vercel.app/assets/logos/patriots_logo.png',
-  'Saints': 'https://chori-survivor-react.vercel.app/assets/logos/saints_logo.png',
-  'Giants': 'https://chori-survivor-react.vercel.app/assets/logos/giants_logo.png',
-  'Jets': 'https://chori-survivor-react.vercel.app/assets/logos/jets_logo.png',
-  'Eagles': 'https://chori-survivor-react.vercel.app/assets/logos/eagles_logo.png',
-  'Steelers': 'https://chori-survivor-react.vercel.app/assets/logos/steelers_logo.png',
-  '49ers': 'https://chori-survivor-react.vercel.app/assets/logos/49ers_logo.png',
-  'Seahawks': 'https://chori-survivor-react.vercel.app/assets/logos/seahawks_logo.png',
-  'Buccaneers': 'https://chori-survivor-react.vercel.app/assets/logos/buccaneers_logo.png',
-  'Titans': 'https://chori-survivor-react.vercel.app/assets/logos/titans_logo.png',
-  'Commanders': 'https://chori-survivor-react.vercel.app/assets/logos/commanders_logo.png'
+  'Cardinals': 'https://chori-survivor.com/assets/logos/cardinals_logo.png',
+  'Falcons': 'https://chori-survivor.com/assets/logos/falcons_logo.png',
+  'Ravens': 'https://chori-survivor.com/assets/logos/ravens_logo.png',
+  'Bills': 'https://chori-survivor.com/assets/logos/bills_logo.png',
+  'Panthers': 'https://chori-survivor.com/assets/logos/panthers_logo.png',
+  'Bears': 'https://chori-survivor.com/assets/logos/bears_logo.png',
+  'Bengals': 'https://chori-survivor.com/assets/logos/bengals_logo.png',
+  'Browns': 'https://chori-survivor.com/assets/logos/browns_logo.png',
+  'Cowboys': 'https://chori-survivor.com/assets/logos/cowboys_logo.png',
+  'Broncos': 'https://chori-survivor.com/assets/logos/broncos_logo.png',
+  'Lions': 'https://chori-survivor.com/assets/logos/lions_logo.png',
+  'Packers': 'https://chori-survivor.com/assets/logos/packers_logo.png',
+  'Texans': 'https://chori-survivor.com/assets/logos/texans_logo.png',
+  'Colts': 'https://chori-survivor.com/assets/logos/colts_logo.png',
+  'Jaguars': 'https://chori-survivor.com/assets/logos/jaguars_logo.png',
+  'Chiefs': 'https://chori-survivor.com/assets/logos/chiefs_logo.png',
+  'Raiders': 'https://chori-survivor.com/assets/logos/raiders_logo.png',
+  'Chargers': 'https://chori-survivor.com/assets/logos/chargers_logo.png',
+  'Rams': 'https://chori-survivor.com/assets/logos/rams_logo.png',
+  'Dolphins': 'https://chori-survivor.com/assets/logos/dolphins_logo.png',
+  'Vikings': 'https://chori-survivor.com/assets/logos/vikings_logo.png',
+  'Patriots': 'https://chori-survivor.com/assets/logos/patriots_logo.png',
+  'Saints': 'https://chori-survivor.com/assets/logos/saints_logo.png',
+  'Giants': 'https://chori-survivor.com/assets/logos/giants_logo.png',
+  'Jets': 'https://chori-survivor.com/assets/logos/jets_logo.png',
+  'Eagles': 'https://chori-survivor.com/assets/logos/eagles_logo.png',
+  'Steelers': 'https://chori-survivor.com/assets/logos/steelers_logo.png',
+  '49ers': 'https://chori-survivor.com/assets/logos/49ers_logo.png',
+  'Seahawks': 'https://chori-survivor.com/assets/logos/seahawks_logo.png',
+  'Buccaneers': 'https://chori-survivor.com/assets/logos/buccaneers_logo.png',
+  'Titans': 'https://chori-survivor.com/assets/logos/titans_logo.png',
+  'Commanders': 'https://chori-survivor.com/assets/logos/commanders_logo.png'
 };
 
 function getTeamLogo(teamName: string): string {
@@ -80,7 +81,7 @@ async function getCurrentNFLWeek(supabase: any): Promise<number> {
 
 async function calculateDeadline(supabase: any, week: number): Promise<string> {
   try {
-    // Obtener el último partido de la semana
+    // Obtener el último partido de la semana (el más tardío)
     const { data: matches } = await supabase
       .from('matches')
       .select('game_date')
@@ -89,18 +90,24 @@ async function calculateDeadline(supabase: any, week: number): Promise<string> {
       .limit(1);
     
     if (matches && matches.length > 0) {
+      // La fecha ya viene en hora CDMX desde la base de datos
       const gameDate = new Date(matches[0].game_date);
-      // Deadline 1 hora antes del último partido
-      gameDate.setHours(gameDate.getHours() - 1);
-      return gameDate.toLocaleString('es-MX', { 
-        timeZone: 'America/Mexico_City',
+      // Deadline 15 minutos antes del último partido
+      gameDate.setMinutes(gameDate.getMinutes() - 15);
+      
+      // Formatear en español sin conversión de zona horaria (ya está en CDMX)
+      const options: Intl.DateTimeFormatOptions = {
         weekday: 'long',
-        year: 'numeric', 
-        month: 'long', 
+        year: 'numeric',
+        month: 'long',
         day: 'numeric',
         hour: '2-digit',
-        minute: '2-digit'
-      });
+        minute: '2-digit',
+        hour12: false
+      };
+      
+      const formattedDate = gameDate.toLocaleString('es-MX', options);
+      return `${formattedDate} hora CDMX`;
     }
   } catch (error) {
     console.error('Error calculating deadline:', error);
@@ -110,15 +117,19 @@ async function calculateDeadline(supabase: any, week: number): Promise<string> {
   const sunday = new Date();
   sunday.setDate(sunday.getDate() + (7 - sunday.getDay()));
   sunday.setHours(12, 0, 0, 0);
-  return sunday.toLocaleString('es-MX', { 
-    timeZone: 'America/Mexico_City',
+  
+  const options: Intl.DateTimeFormatOptions = {
     weekday: 'long',
-    year: 'numeric', 
-    month: 'long', 
+    year: 'numeric',
+    month: 'long',
     day: 'numeric',
     hour: '2-digit',
-    minute: '2-digit'
-  });
+    minute: '2-digit',
+    hour12: false
+  };
+  
+  const formattedDate = sunday.toLocaleString('es-MX', options);
+  return `${formattedDate} hora CDMX`;
 }
 
 async function getTopMatchesWithOdds(supabase: any, week: number): Promise<MatchOdds[]> {
@@ -320,17 +331,16 @@ async function getUserEntriesStatus(supabase: any, userId: string, week: number)
     
     if (!season) return [];
     
-    // Obtener entradas del usuario
+    // Obtener TODAS las entradas del usuario (no filtrar por is_active)
     const { data: entries } = await supabase
       .from('entries')
-      .select('id, entry_name')
+      .select('id, entry_name, status')
       .eq('user_id', userId)
-      .eq('season_id', season.id)
-      .eq('is_active', true);
+      .eq('season_id', season.id);
     
     if (!entries || entries.length === 0) return [];
     
-    const entryIds = entries.map(e => e.id);
+    const entryIds = entries.map((e: any) => e.id);
     
     // Obtener picks de la semana específica
     const { data: picks } = await supabase
@@ -342,13 +352,14 @@ async function getUserEntriesStatus(supabase: any, userId: string, week: number)
       .eq('week', week)
       .in('entry_id', entryIds);
     
-    // Mapear entradas con su estado de pick
+    // Mapear entradas con su estado de pick y status
     return entries.map((entry: any) => {
       const weekPick = picks?.find((p: any) => p.entry_id === entry.id);
       return {
         entry_name: entry.entry_name,
         has_pick: !!weekPick,
-        team_picked: weekPick?.teams?.name
+        team_picked: weekPick?.teams?.name,
+        status: entry.status || 'alive'
       };
     });
   } catch (error) {
@@ -375,6 +386,17 @@ function generateWeeklyReminderHTML(data: WeeklyReminderData): string {
   const entriesWithPicks = data.entries.filter(e => e.has_pick);
   const entriesWithoutPicks = data.entries.filter(e => !e.has_pick);
   
+  // Helper para obtener el estilo del badge de status
+  const getStatusBadge = (status: string) => {
+    const styles = {
+      alive: { bg: '#d3f9d8', color: '#2b8a3e', text: 'Vivo' },
+      last_chance: { bg: '#fff3bf', color: '#e67700', text: 'Última Oportunidad' },
+      eliminated: { bg: '#ffe0e0', color: '#c92a2a', text: 'Eliminado' }
+    };
+    const style = styles[status as keyof typeof styles] || styles.alive;
+    return `<span style="display:inline-block; background-color:${style.bg}; color:${style.color}; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:bold; margin-top:4px;">${style.text}</span>`;
+  };
+  
   return `
   <!DOCTYPE html>
   <html lang="es">
@@ -388,15 +410,11 @@ function generateWeeklyReminderHTML(data: WeeklyReminderData): string {
       <tr>
         <td align="center">
           <table width="600" cellpadding="0" cellspacing="0" style="background:#fff; border-radius:10px; box-shadow:0 0 20px rgba(0,0,0,0.08); margin:20px auto;">
-            <!-- Header con gradiente -->
+            <!-- Header con gradiente unificado -->
             <tr>
-              <td align="center" style="padding:30px 20px 10px 20px; background-color:#764ba2; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-top-left-radius:10px; border-top-right-radius:10px;">
+              <td align="center" style="padding:30px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-top-left-radius:10px; border-top-right-radius:10px;">
                 <img src="https://i.imgur.com/CkMST9l.png" alt="Chori Survivor" width="120" style="display:block; margin:auto;">
-              </td>
-            </tr>
-            <tr>
-              <td align="center" style="padding:0 20px 20px 20px; background-color:#764ba2; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:#fff;">
-                <h2 style="margin:0; font-size:24px; font-weight:bold;">⚠️ Recordatorio - Semana ${data.currentWeek}</h2>
+                <h2 style="margin:15px 0 0 0; font-size:24px; font-weight:bold; color:#fff;">⚠️ Recordatorio - Semana ${data.currentWeek}</h2>
               </td>
             </tr>
             
@@ -422,7 +440,12 @@ function generateWeeklyReminderHTML(data: WeeklyReminderData): string {
                     <td style="padding:20px;">
                       <h3 style="margin:0 0 15px 0; color:#c92a2a;">❌ Entradas SIN pick (${entriesWithoutPicks.length})</h3>
                       <ul style="margin:0; padding-left:20px; color:#c92a2a;">
-                        ${entriesWithoutPicks.map(entry => `<li><strong>${entry.entry_name}</strong></li>`).join('')}
+                        ${entriesWithoutPicks.map(entry => `
+                          <li>
+                            <strong>${entry.entry_name}</strong>
+                            <div>${getStatusBadge(entry.status)}</div>
+                          </li>
+                        `).join('')}
                       </ul>
                     </td>
                   </tr>
@@ -438,7 +461,10 @@ function generateWeeklyReminderHTML(data: WeeklyReminderData): string {
                       <table width="100%" cellpadding="8" cellspacing="0">
                         ${entriesWithPicks.map(entry => `
                           <tr>
-                            <td style="color:#1864ab;"><strong>${entry.entry_name}</strong></td>
+                            <td style="color:#1864ab;">
+                              <strong>${entry.entry_name}</strong>
+                              <div>${getStatusBadge(entry.status)}</div>
+                            </td>
                             <td style="color:#1864ab; text-align:right;">
                               <table cellpadding="0" cellspacing="0" style="float:right;">
                                 <tr>
@@ -457,12 +483,12 @@ function generateWeeklyReminderHTML(data: WeeklyReminderData): string {
                 </table>
                 ` : ''}
                 
-                <!-- Top Partidos Más Desiguales -->
+                <!-- Top Partidos Recomendados -->
                 ${data.topMatches.length > 0 ? `
                 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8f9fa; border-radius:10px; margin:25px 0;">
                   <tr>
                     <td style="padding:20px;">
-                      <h3 style="margin:0 0 15px 0; color:#495057;">🔥 Top ${data.topMatches.length} Partidos Más Desiguales</h3>
+                      <h3 style="margin:0 0 15px 0; color:#495057;">🔥 Top ${data.topMatches.length} partidos recomendados</h3>
                       <p style="margin:0 0 15px 0; color:#6c757d; font-size:14px;">Partidos con mayor diferencia en los momios</p>
                       ${data.topMatches.map((match) => `
                         <table width="100%" cellpadding="15" cellspacing="0" style="background:#fff; border:1px solid #dee2e6; border-radius:8px; margin-bottom:15px;">
@@ -519,7 +545,7 @@ function generateWeeklyReminderHTML(data: WeeklyReminderData): string {
                 <table width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0;">
                   <tr>
                     <td align="center">
-                      <a href="https://chori-survivor-react.vercel.app/picks" style="display:inline-block; background-color:#764ba2; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:#fff; padding:15px 30px; text-decoration:none; border-radius:8px; font-weight:bold; font-size:16px; border:none; box-shadow: 0 4px 15px rgba(118, 75, 162, 0.3);">
+                      <a href="https://chori-survivor.com/picks" style="display:inline-block; background-color:#764ba2; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:#fff; padding:15px 30px; text-decoration:none; border-radius:8px; font-weight:bold; font-size:16px; border:none; box-shadow: 0 4px 15px rgba(118, 75, 162, 0.3);">
                         🎯 Hacer mis Picks Ahora
                       </a>
                     </td>
@@ -719,8 +745,8 @@ serve(async (req: Request) => {
           });
         }
 
-        // Pequeña pausa entre emails para no sobrecargar Resend
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Pausa entre emails para respetar rate limit de Resend (2 requests/segundo)
+        await new Promise(resolve => setTimeout(resolve, 600));
 
       } catch (userError: any) {
         console.error(`Error processing user ${user.email}:`, userError);
