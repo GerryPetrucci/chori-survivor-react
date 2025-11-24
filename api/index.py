@@ -257,11 +257,13 @@ async def root():
             "GET /test-api"
         ],
         "cron_jobs": {
-            "set-current-week": "Martes y Jueves a las 5:00 AM (0 5 * * 2,4)",
-            "daily-update": "Todos los días a las 23:59 (59 23 * * *)",
-            "update-weekly-odds-auto": "Todos los días a las 5:00 AM (0 5 * * *)",
-            "auto-assign-last-game-picks": "5 minutos después del último partido de la semana (dinámico)",
-            "update-live-scores": "Domingos a las 5:00 AM - Loop cada 2 min hasta que no haya partidos en vivo (0 5 * * 0)"
+            "set-current-week": "Martes y Jueves a las 5:00 AM (0 11 * * 2,4)",
+            "daily-update": "Todos los días a las 23:59 (59 5 * * *)",
+            "update-weekly-odds-auto": "Todos los días a las 5:30 AM (30 11 * * *)",
+            "auto-assign-last-game-picks": "5 minutos después del último partido de la semana (45 23 * * 1)",
+            "update-live-scores-morning": "Domingos 8:00 AM - Loop cada 2 min por 5 horas (0 14 * * 0)",
+            "update-live-scores-afternoon": "Domingos 13:00 PM - Loop cada 2 min por 5 horas (0 19 * * 0)",
+            "update-live-scores-evening": "Domingos 18:00 PM - Loop cada 2 min por 4 horas (0 0 * * 1)"
         }
     }
 
@@ -852,15 +854,24 @@ async def update_matches(body: UpdateMatchesRequest = Body(None)):
             logger.info(f"Partido encontrado: {len(match_query.data)} resultados")
             now_str = datetime.now(pytz.utc).strftime("%Y-%m-%d %H:%M:%S")
             
-            # Validar scores 0-0 en partidos no completados
-            if not is_completed and home_score == 0 and away_score == 0:
-                home_score_db = None
-                away_score_db = None
-                status_db = "scheduled"
-            else:
+            # Determinar el estado del partido basado en la información de la API
+            # - completed: si is_completed = True
+            # - in_progress: si NO está completado pero tiene scores > 0
+            # - scheduled: si NO está completado y scores son 0-0 o None
+            if is_completed:
+                status_db = "completed"
                 home_score_db = home_score
                 away_score_db = away_score
-                status_db = "completed" if is_completed else "scheduled"
+            elif home_score > 0 or away_score > 0:
+                # Partido en progreso: tiene scores pero no está completado
+                status_db = "in_progress"
+                home_score_db = home_score
+                away_score_db = away_score
+            else:
+                # Partido programado: no está completado y no tiene scores
+                status_db = "scheduled"
+                home_score_db = None
+                away_score_db = None
 
             # ...actualización de partido...
             if match_query.data:
