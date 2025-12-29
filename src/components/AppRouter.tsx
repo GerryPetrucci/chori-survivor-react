@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 // Components
 import Layout from '../components/layout/Layout.tsx';
 import ProtectedRoute from '../components/ui/ProtectedRoute.tsx';
+import OffSeason from '../pages/OffSeason';
 
 // Pages
 import LoginPage from '../pages/Login.tsx';
@@ -24,90 +25,10 @@ import AdminDashboard from '../pages/admin/AdminDashboard.tsx';
 import ShowPicks from '../pages/admin/ShowPicks.tsx';
 
 export default function AppRouter() {
-  const { isAuthenticated, user } = useAuth();
-
   return (
     <Router>
       <Routes>
-        {/* Public Routes */}
-        <Route 
-          path="/login" 
-          element={
-            // Allow access to login page if in recovery mode (even if authenticated)
-            (() => {
-              const isRecoveryMode = window.location.search.includes('type=recovery') || 
-                                   window.location.search.includes('recovery=true') ||
-                                   window.location.hash.includes('type=recovery') ||
-                                   window.location.hash.includes('access_token') ||
-                                   window.location.hash.includes('refresh_token') ||
-                                   window.location.search.includes('access_token');
-              
-              if (isAuthenticated && !isRecoveryMode) {
-                return <Navigate to={user?.user_type === 'admin' ? '/admin' : '/dashboard'} replace />;
-              }
-              return <LoginPage />;
-            })()
-          }
-        />
-        <Route 
-          path="/activate-token" 
-          element={
-            isAuthenticated ? 
-              <Navigate to={user?.user_type === 'admin' ? '/admin' : '/dashboard'} replace /> : 
-              <ActivateTokenPage />
-          } 
-        />
-        <Route 
-          path="/request-password-reset" 
-          element={
-            isAuthenticated ? 
-              <Navigate to={user?.user_type === 'admin' ? '/admin' : '/dashboard'} replace /> : 
-              <RequestPasswordResetPage />
-          } 
-        />
-        <Route 
-          path="/debug-auth" 
-          element={<DebugAuthPage />} 
-        />
-        
-        {/* Protected Routes */}
-        <Route path="/" element={<ProtectedRoute />}>
-          <Route path="/" element={<Layout />}>
-            {/* Default redirect based on user type */}
-            <Route 
-              index 
-              element={
-                user?.user_type === 'admin' ? 
-                  <Navigate to="/admin" replace /> : 
-                  <Navigate to="/dashboard" replace />
-              } 
-            />
-            
-            {/* User Routes */}
-            <Route path="dashboard" element={<DashboardPage />} />
-            <Route path="picks" element={<PicksPage />} />
-            <Route path="matches" element={<MatchesPage />} />
-            <Route path="trends" element={<TrendsPage />} />
-            <Route path="ranking" element={<RankingPage />} />
-            <Route path="profile" element={<ProfilePage />} />
-            <Route path="rules" element={<RulesPage />} />
-            <Route path="history" element={<HistoryPage />} />
-            
-            {/* Admin Routes */}
-            {user?.user_type === 'admin' && (
-              <>
-                <Route path="admin" element={<AdminDashboard />} />
-                <Route path="admin/show-picks" element={<ShowPicks />} />
-              </>
-            )}
-          </Route>
-        </Route>
-        
-        {/* Catch all route - redirect to home, which will handle the user type check */}
-        <Route 
-          path="*" 
-          element={<Navigate to="/" replace />} 
-        />
+        <Route path="*" element={<OffSeason />} />
       </Routes>
     </Router>
   );
